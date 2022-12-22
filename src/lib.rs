@@ -51,27 +51,56 @@ mod test {
 
     #[test]
     fn query_value() {
-        let mut app = App::default();
+        let mut app = App::default(); // App instance is the soul of the testing framework, it is the blockchain simulator, and it would be an interface to all contracts on it.
         
         let contract_id = app.store_code(counting_contract());
         // simulates the deployment of a contract, gives back a contract id
+        // We use it right after it is created to call store_code on it. 
+        // This method takes a contract as an argument and returns a contract id (unique identifier for the contract)
+        // key-value store, contract id is the key, contract is the value
+        // Storing code is this operation of uploading smart contract binary to be stored in a blockchain state.
 
         let contract_addr = app // app is a testing framework
-        .instantiate_contract(
+        .instantiate_contract( // simulates the instantiation of a contract, gives back a contract address
                 contract_id, // contract id the contract was deployed with
-                Addr::unchecked("sender"), // arbitrary address
+                Addr::unchecked("sender"), // create an arbitrary address, used for testing
                 &Empty {}, // init msg, msg you send to contract when you instantiate it
-                &[], // funds
-                "Counting Contract", // label
-                None, // admin
+                // but what is important - is it would not be just passed to the entry point. It would be first serialized to JSON and then deserialized back to send it to the contract.
+                &[], // funds, usually has tokens sent with the contract instantiation
+                "Counting Contract", // label, name of the contract
+                None, // admins are the only addresses that can later perform migrations of smart contracts.
             ).unwrap(); // fail if error
         // simulates the instantiation of a contract, gives back a contract address
         
         let resp: ValueResp = app // app is a testing framework
-        .wrap() // wrap the contract with the contract wrapper
-        .query_wasm_smart(contract_addr, &QueryMsg::Value {}) // query the contract with the contract address and the query message
+        .wrap() // converts app, wrap the contract to a temporary QueryWrapper object, allowing to query the query the blockchain
+        .query_wasm_smart(contract_addr, &QueryMsg::Value {}) // query the contract with the contract address and the query message, depending who calls, they can't mod the state
         .unwrap(); // fail if error
 
         assert_eq!(resp, ValueResp { value: 0 });
+    }
+
+    #[test]
+    fn query_incremented() {
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app.instantiate_contract(
+            contract_id,
+        Addr::unchecked("sender"),
+        &Empty {},
+        &[],
+        "Counting Contract",
+        None,
+        ).unwrap();
+
+        let resp: ValueResp = app.wrap()
+            .query_wasm_smart(contract_addr, &QueryMsg::Incremented { value: 1 }).unwrap();
+
+        assert_eq!(resp, ValueResp { value: 2 });
+
+
+
     }
 }

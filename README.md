@@ -1,1 +1,1 @@
-# cw-course
+# cw-academy
