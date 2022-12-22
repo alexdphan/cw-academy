@@ -10,4 +10,7 @@ crate-type = ["cdylib", "rlib"] #dynamic and static library
 
 [dependencies]
 cosmwasm-std = "1.0.0" #cosmwasm standard library
-serde = "1.0.0" # serialization library
+serde = "1.0.0" #serialization library
+
+[dev-dependencies]
+cw-multi-test = "0.16.2" #cosmwasm testing library
