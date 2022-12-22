@@ -99,8 +99,5 @@ mod test {
             .query_wasm_smart(contract_addr, &QueryMsg::Incremented { value: 1 }).unwrap();
 
         assert_eq!(resp, ValueResp { value: 2 });
-
-
-
     }
 }
