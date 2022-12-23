@@ -13,25 +13,26 @@ mod state;
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    contract::instantiate(deps, msg.counter)
-} 
+    contract::instantiate(deps, info, msg.counter, msg.minimal_donation) 
+} // entry point instantiate function for contract.rs
 
 #[entry_point]
 pub fn execute(
     deps: DepsMut,
-     _env: Env, 
-     info: MessageInfo, 
-     msg: msg::ExecMsg,
-    ) -> StdResult<Response> {
+    env: Env,
+    info: MessageInfo,
+    msg: msg::ExecMsg,
+) -> StdResult<Response> {
     use contract::exec;
     use msg::ExecMsg::*;
 
   match msg {
-        Poke {} => exec::poke(deps, info),
+        Donate {} => exec::donate(deps, info),
         Reset { counter } => exec::reset(deps, info, counter),
+        Withdraw {} => exec::withdraw(deps, env, info),
     }
 } 
 
@@ -57,8 +58,8 @@ pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
 // cfg is a conditional compilation attribute, meaning that the code it wraps would be compiled-in if and only if the predicate passed to it is true. In this case, we have test predicate, which is true on cargo test runs
 #[cfg(test)]
 mod test {
-    use cosmwasm_std::{Empty, Addr}; // msg type for contract
-    use cw_multi_test::{App, Contract, ContractWrapper, Executor}; 
+    use cosmwasm_std::{Empty, Addr, coin, coins, Storage}; // msg type for contract
+    use cw_multi_test::{App, Contract, ContractWrapper, Executor, Router}; 
     // App: simulate the execution of a smart contract in a controlled environment
     // Contract: simulates a contract, testing
     // ContractWrapper: wrapper for contract (implements 'Contract' trait), used for testing
@@ -76,7 +77,7 @@ mod test {
     // These functions are likely implementations of the Contract trait's methods, and they will be used to execute the contract's behavior when the trait object is called.
 
     #[test]
-    fn query_value() {
+    fn query_value() { // test to see if the query_value function works
         let mut app = App::default(); // App instance is the soul of the testing framework, it is the blockchain simulator, and it would be an interface to all contracts on it.
         
         let contract_id = app.store_code(counting_contract());
@@ -91,7 +92,7 @@ mod test {
         .instantiate_contract( 
                 contract_id, // contract id the contract was deployed with
                 Addr::unchecked("sender"), // create an arbitrary address, used for testing
-                &InstantiateMsg { counter: 10 }, // init msg, msg you send to contract when you instantiate it
+                &InstantiateMsg { counter: 10, minimal_donation: coin(10, "atom") }, // init msg, msg you send to contract when you instantiate it
                 // but what is important - is it would not be just passed to the entry point. It would be first serialized to JSON and then deserialized back to send it to the contract.
                 &[], // funds, usually has tokens sent with the contract instantiation
                 "Counting Contract", // label, name of the contract
@@ -108,45 +109,7 @@ mod test {
     }
 
     #[test]
-    fn poke() {
-        let mut app = App::default(); 
-        // app is a testing framework
-
-        let contract_id = app.store_code(counting_contract()); 
-        // simulates the deployment of a contract and store the code, assigns to a contract id
-
-        let contract_addr = app
-            .instantiate_contract(
-                contract_id,
-                Addr::unchecked("sender"),
-                &InstantiateMsg { counter: 0 },
-                &[],
-                "Counting Contract",
-                None,
-            ).unwrap();
-        // simulates the instantiation of a contract, gives back a contract address
-
-        app.execute_contract(
-            Addr::unchecked("sender"),
-            contract_addr.clone(),
-            &ExecMsg::Poke {},
-           &[],
-        ).unwrap();
-        // simulates the execution of a contract, unwrap the response in the form of a ValueResp (pub value: u64)
-
-        let resp: ValueResp = app
-            .wrap()
-            .query_wasm_smart(contract_addr, &QueryMsg::Value {})
-            .unwrap();
-        // simulates the query response of a contract, unwrap the response in which is in the form of type Result<ValueResp, StdError>
-        // unwrap would display the error if there is one, ValueResp if it is successful (Ok)
-
-        assert_eq!(resp, ValueResp { value: 1 });
-        // makes sure the value is 1
-    }
-
-    #[test]
-    fn reset() {
+    fn reset() { // test to see if the contract (counter) can be reset
         let mut app = App::default();
 
         let contract_id = app.store_code(counting_contract());
@@ -155,7 +118,7 @@ mod test {
             .instantiate_contract(
                 contract_id,
                 Addr::unchecked("sender"),
-                &InstantiateMsg { counter: 0 },
+                &InstantiateMsg { counter: 0, minimal_donation: coin(10, "atom") },
                 &[],
                 "Counting contract",
                 None,
@@ -178,4 +141,184 @@ mod test {
         assert_eq!(resp, ValueResp { value: 10 });
     }
 
+    #[test]
+    fn donate() { // test to see if the contract can be donated to
+let mut app = App::default(); 
+
+let contract_id = app.store_code(counting_contract());
+
+let contract_addr = app
+    .instantiate_contract(
+        contract_id,
+        Addr::unchecked("sender"),
+        &InstantiateMsg { 
+            counter: 0, 
+            minimal_donation: coin(10, "atom") },
+        &[],
+        "Counting contract",
+        None,
+    ).unwrap();
+
+    app.execute_contract(
+        Addr::unchecked("sender"),
+        contract_addr.clone(),
+        &ExecMsg::Donate {},
+        &[],
+    ).unwrap();
+    
+    let resp: ValueResp = app
+        .wrap()
+        .query_wasm_smart(contract_addr, &QueryMsg::Value {})
+        .unwrap();
+
+        assert_eq!(resp, ValueResp { value: 0 });
+
+    }
+
+    #[test]
+fn donate_with_funds() { // test to check if the contract is able to receive funds
+
+    let sender = Addr::unchecked("sender"); // setting sender address
+
+    let mut app = App::new(|router, _api, storage| {
+        router
+            .bank
+            .init_balance(storage, &sender, coins(10, "atom"))
+            .unwrap();
+    }); 
+    // setting up the app with the bank module
+    // You would have to change how you create an app to use the bank module (allows to set initial balances for your accounts)
+    // init_balance is a function that initializes the balance of the sender, here we are setting the sender's balance to 10 atom
+
+    let contract_id = app.store_code(counting_contract());
+
+    let contract_addr = app
+        .instantiate_contract(
+            contract_id,
+            Addr::unchecked("sender"),
+            &InstantiateMsg {
+                counter: 0,
+                minimal_donation: coin(10, "atom"),
+            },
+            &[],
+            "Counting contract",
+            None,
+        )
+        .unwrap();
+
+    app.execute_contract(
+        Addr::unchecked("sender"),
+        contract_addr.clone(),
+        &ExecMsg::Donate {},
+        &coins(10, "atom"),
+    )
+    .unwrap();
+
+    let resp: ValueResp = app
+        .wrap()
+        .query_wasm_smart(contract_addr, &QueryMsg::Value {})
+        .unwrap();
+
+    assert_eq!(resp, ValueResp { value: 1 });
+}
+
+#[test]
+fn expecting_no_funds() { // test to check if the contract is able to receive funds, expect no funds
+    let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                Addr::unchecked("sender"),
+                &InstantiateMsg {
+                    counter: 0,
+                    minimal_donation: coin(0, "atom"),
+                },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+
+        app.execute_contract(
+            Addr::unchecked("sender"),
+            contract_addr.clone(),
+            &ExecMsg::Donate {},
+            &[],
+        )
+        .unwrap();
+
+        let resp: ValueResp = app
+            .wrap()
+            .query_wasm_smart(contract_addr, &QueryMsg::Value {})
+            .unwrap();
+
+        assert_eq!(resp, ValueResp { value: 1 }); // donate function is executed and counter is incremented if no funds are sent (contract.rs)
+}
+
+#[test]
+fn withdraw() {
+    let owner = Addr:: unchecked("owner");
+    let sender = Addr::unchecked("sender");
+
+    let mut app = App::new(|router, _api, storage| {
+        router
+            .bank
+            .init_balance(storage, &sender, coins(10, "atom"))
+            .unwrap();
+    });
+
+    let contract_id = app.store_code(counting_contract());
+
+    let contract_addr = app
+        .instantiate_contract(
+            contract_id,
+            owner.clone(),
+            &InstantiateMsg {
+                counter: 0,
+                minimal_donation: coin(10, "atom"),
+            },
+            &[],
+            "Counting contract",
+            None,
+        )
+        .unwrap();
+        // instantiating the contract
+ 
+        app.execute_contract(
+            sender.clone(),
+            contract_addr.clone(),
+            &ExecMsg::Donate {},
+            &coins(10, "atom"),
+        )
+        .unwrap(); 
+        // executing the donate function
+
+        app.execute_contract(
+            owner.clone(),
+            contract_addr.clone(),
+            &ExecMsg::Withdraw {},
+            &[],
+        )
+        .unwrap();
+    // executing the withdraw function
+    // withdraw function is executed and funds are sent to the owner if the owner is the sender
+
+ assert_eq!(
+            app.wrap().query_all_balances(owner).unwrap(),
+            coins(10, "atom")
+        );// asserting the owner has 10 atom after the withdraw function is executed
+
+    assert_eq!(app.wrap().query_all_balances(sender).unwrap(), vec![]);
+    // asserting the sender has no funds after the withdraw function is executed
+    // uses ! to compare the sender's balance to an empty vector
+
+    assert_eq!(
+        app.wrap().query_all_balances(contract_addr).unwrap(),
+        vec![] 
+    ) // vec![] is an empty vector that is returned if the contract has no funds
+    // asserting the contract address has no funds after the withdraw function is executed
+    }
 }
