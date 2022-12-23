@@ -12,6 +12,7 @@ pub fn instantiate(deps: DepsMut, counter: u64) -> StdResult<Response> {
   Ok(Response::new())
 } // initialize contract state
 
+// query is a read operation
 pub mod query {
   use cosmwasm_std::{Deps, StdResult};
   
@@ -25,9 +26,9 @@ pub mod query {
       Ok(ValueResp { value })
     }
   } 
-
   // load vs save: load is a read-only operation, save is a write operation.
 
+  // execute is a write operation
   pub mod exec {
     use cosmwasm_std::{DepsMut, Response, MessageInfo, StdResult};
 
@@ -44,11 +45,23 @@ pub mod query {
           // adding attributes to the wasm event (only default event type that is emitted from every execution)
       Ok(resp)
       }
-    } 
     // similar to instantiate, but update/incrementing the counter
     // this function, poke, there is a storage and info (sender) being passed as an argument to the save method of the COUNTER object.
     // returns a result of type StdResult<Response>
 
+         pub fn reset(deps: DepsMut, info: MessageInfo, counter: u64) -> StdResult<Response> {
+        COUNTER.save(deps.storage, &counter)?;
+
+        let resp = Response::new()
+            .add_attribute("action", "reset")
+            .add_attribute("sender", info.sender.as_str())
+            .add_attribute("counter", counter.to_string());
+
+                    Ok(resp)
+  } // reset counter to 0
+}
+
+// --------- Additional Notes --------- //
 
 // Events are emitted from execution using the Response::add_event function, passing the constructed Event type.
 

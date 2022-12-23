@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
+    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use msg::InstantiateMsg;
 
@@ -29,10 +29,11 @@ pub fn execute(
     use contract::exec;
     use msg::ExecMsg::*;
 
-    match msg {
+  match msg {
         Poke {} => exec::poke(deps, info),
+        Reset { counter } => exec::reset(deps, info, counter),
     }
-} // align the call of the exec::poke in the entry point:
+} 
 
 
 // Deps is read-only, DepsMut is read-write on blockchain state
@@ -112,7 +113,7 @@ mod test {
         // app is a testing framework
 
         let contract_id = app.store_code(counting_contract()); 
-        // simulates the deployment of a contract, gives back a contract id
+        // simulates the deployment of a contract and store the code, assigns to a contract id
 
         let contract_addr = app
             .instantiate_contract(
@@ -123,6 +124,7 @@ mod test {
                 "Counting Contract",
                 None,
             ).unwrap();
+        // simulates the instantiation of a contract, gives back a contract address
 
         app.execute_contract(
             Addr::unchecked("sender"),
@@ -130,12 +132,50 @@ mod test {
             &ExecMsg::Poke {},
            &[],
         ).unwrap();
+        // simulates the execution of a contract, unwrap the response in the form of a ValueResp (pub value: u64)
+
+        let resp: ValueResp = app
+            .wrap()
+            .query_wasm_smart(contract_addr, &QueryMsg::Value {})
+            .unwrap();
+        // simulates the query response of a contract, unwrap the response in which is in the form of type Result<ValueResp, StdError>
+        // unwrap would display the error if there is one, ValueResp if it is successful (Ok)
+
+        assert_eq!(resp, ValueResp { value: 1 });
+        // makes sure the value is 1
+    }
+
+    #[test]
+    fn reset() {
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                Addr::unchecked("sender"),
+                &InstantiateMsg { counter: 0 },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+
+        app.execute_contract(
+            Addr::unchecked("sender"),
+            contract_addr.clone(),
+            &ExecMsg::Reset { counter: 10 },
+            &[],
+        )
+        .unwrap();
 
         let resp: ValueResp = app
             .wrap()
             .query_wasm_smart(contract_addr, &QueryMsg::Value {})
             .unwrap();
 
-        assert_eq!(resp, ValueResp { value: 1 });
+        assert_eq!(resp, ValueResp { value: 10 });
     }
+
 }

@@ -24,4 +24,10 @@ pub struct ValueResp {
 #[serde(rename_all = "snake_case")]
 pub enum ExecMsg {
   Poke {},
+  Reset {
+    #[serde(default)] 
+    counter: u64,
+  }, // Reset taking a counter as an argument
+   // #[serde(default)] is a macro that allows us to set a default value for a field in a struct or enum variant.
+   // The serde crate is a library that provides a way to serialize and deserialize Rust data structures in a variety of formats, such as JSON, YAML, and XML.
 } // we define an enum with a single variant per execution message we want to handle.
