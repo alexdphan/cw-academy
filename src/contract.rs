@@ -4,7 +4,6 @@
 // Modules (mod) also allow us to declare items that are only available within a given scope, rather than making them available to the entire crate.
 
 use cosmwasm_std::{Coin, DepsMut, MessageInfo, Response, StdResult};
-
 use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
 
 pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donation: Coin)  -> StdResult<Response> {
@@ -32,11 +31,11 @@ pub mod query {
 
   // execute is a write operation
   pub mod exec {
-    use cosmwasm_std::{BankMsg, Env};
-    use cosmwasm_std::{DepsMut, Response, MessageInfo, StdResult, StdError};
+    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
 
-use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
-
+    use crate::error::ContractError;
+    use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
+    
      pub fn donate(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
         // don't always want to update counter, delayed updating the counter, make it mutable
         let mut counter = COUNTER.load(deps.storage)?; 
@@ -63,7 +62,13 @@ use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
     // this function, poke, there is a storage and info (sender) being passed as an argument to the save method of the COUNTER object.
     // returns a result of type StdResult<Response>
 
-        pub fn reset(deps: DepsMut, info: MessageInfo, counter: u64) -> StdResult<Response> {
+        pub fn reset(deps: DepsMut, info: MessageInfo, counter: u64) -> Result<Response, ContractError> {
+          let owner = OWNER.load(deps.storage)?; if info.sender != owner {
+               return Err(ContractError::Unauthorized {
+                owner: owner.to_string(),
+            });
+        }
+
         COUNTER.save(deps.storage, &counter)?;
 
         let resp = Response::new()
@@ -74,11 +79,14 @@ use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
                     Ok(resp)
   } // reset counter to 0
 
-  pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
+  pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     let owner = OWNER.load(deps.storage)?;
     if info.sender != owner {
-      return Err(StdError::generic_err("Unauthorized, Only owner can withdraw"));
+      return Err(ContractError::Unauthorized {
+       owner: owner.to_string(),
+      });
     } // checking if the sender of the message is the owner/creator of the contract
+    // instead of returning a generic error (StdError::generic_error(...)), we return a custom error, which is a ContractError::Unauthorized.
 
     let balance = deps.querier.query_all_balances(&env.contract.address)?;
     let bank_msg = BankMsg::Send {
@@ -97,7 +105,57 @@ use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
   } 
   // withdraw all funds from contract while adding a message to the response, submessages must be processed first, then the Response object is returned. If submessages are not processed, the Response object is not returned.
   // uses bank_msg to send the balance to the sender of the message to the owner, which is the sender of the message, adding it to the response object
-}
+
+  pub fn withdraw_to(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    receiver: String,
+    funds: Vec<Coin>,
+  ) -> Result<Response, ContractError> {
+    let owner = OWNER.load(deps.storage)?;
+    if info.sender != owner {
+      return Err(ContractError::Unauthorized {
+        owner: owner.to_string(),
+      });
+    } // checking if the sender of the message is the owner/creator of the contract
+
+    let mut balance = deps.querier.query_all_balances(&env.contract.address)?; // assign balance to the balance of the contract
+
+    if !funds.is_empty() { // if funds is not empty
+      for coin in &mut balance {
+         // for each coin in balance
+        let limit = funds 
+        // limit is the amount of the coin in funds
+        .iter() 
+        // iterates through the funds
+        .find(|c| c.denom == coin.denom) 
+        // finds the coin with the same denom as the coin in funds
+        .map(|c| c.amount) 
+        // maps the amount of the coin in funds
+        .unwrap_or(Uint128::zero()); 
+        // if there is no coin with the same denom as the coin in funds, set the amount to zero
+
+        coin.amount = std::cmp::min(coin.amount, limit);
+        // set the amount to the minimum of the two amounts to prevent withdrawing more than the limit
+      }
+    } // if funds is not empty, iterate through the balance and find the coin with the same denom as the coin in funds, and set the amount to the minimum of the two amounts
+
+    let bank_msg = BankMsg::Send {
+      to_address: receiver,
+      amount: balance,
+    }; // uses BankMsg::Send to send the balance to the receiver, adding it to the response object
+
+    let resp = Response::new()
+        .add_message(bank_msg)
+        .add_attribute("action", "withdraw")
+        // withdraw in add_attribut is the action that allows the owner to withdraw funds from the contract
+        .add_attribute("sender", info.sender.as_str());
+        // sender is the owner of the contract, which is the sender of the message, which is the only one who can execute this function
+        Ok(resp) 
+    } 
+  }
+
 
 // --------- Additional Notes --------- //
 

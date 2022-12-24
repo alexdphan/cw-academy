@@ -1,12 +1,20 @@
 use cosmwasm_std::{
     entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
-use msg::InstantiateMsg;
 
+use error::ContractError; 
+// using module file error.rs for ContractError
+use msg::InstantiateMsg;
+// using module file msg.rs for InstantiateMsg
+// the use keyword is used to bring a module into scope, so that we can use its contents
 
 mod contract; // private because contract contains internal logic functions, contains all msg handlers 
+pub mod error; // using module file error.rs
 pub mod msg; // using module file msg.rs
 mod state;
+// these modules can be used by other modules in the crate, but not by code outside the crate
+
+// In summary, the use keyword is used to import symbols from other modules into the current scope, while the pub keyword is used to make a symbol public and available for use from other modules.
 
 // In the context of a smart contract, an entry point is a function that can be called by external users or other contracts. Entry points serve as the public interface for a contract, allowing external entities to interact with it and execute its functions.
 #[entry_point]
@@ -25,17 +33,25 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: msg::ExecMsg,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     use contract::exec;
     use msg::ExecMsg::*;
 
-  match msg {
-        Donate {} => exec::donate(deps, info),
-        Reset { counter } => exec::reset(deps, info, counter),
-        Withdraw {} => exec::withdraw(deps, env, info),
-    }
-} 
+ match msg {
 
+        Donate {} => exec::donate(deps, info).map_err(ContractError::Std),
+
+        Reset { counter } => exec::reset(deps, info, counter),
+
+        Withdraw {} => exec::withdraw(deps, env, info),
+
+        WithdrawTo { receiver, funds } => {
+            exec::withdraw_to(deps, env, info, receiver, funds)
+        }
+        // added map for ContractError instead of using default StdError
+        // removed if all fn always return Error being ContractError
+    }
+}
 
 // Deps is read-only, DepsMut is read-write on blockchain state
 #[entry_point]
@@ -64,7 +80,8 @@ mod test {
     // Contract: simulates a contract, testing
     // ContractWrapper: wrapper for contract (implements 'Contract' trait), used for testing
 
-      use crate::msg::{InstantiateMsg, QueryMsg, ValueResp, ExecMsg};
+    use crate::error::ContractError;
+    use crate::msg::{InstantiateMsg, QueryMsg, ValueResp, ExecMsg};
     use crate::{execute, instantiate, query}; // brings the execute, instantiate, and query functions from the current crate into the current scope
 
     // https://dhghomon.github.io/easy_rust/Chapter_54.html
@@ -263,6 +280,7 @@ fn withdraw() {
     let owner = Addr:: unchecked("owner");
     let sender = Addr::unchecked("sender");
 
+    // representing the router, api, and the storage for the App
     let mut app = App::new(|router, _api, storage| {
         router
             .bank
@@ -294,7 +312,7 @@ fn withdraw() {
             &coins(10, "atom"),
         )
         .unwrap(); 
-        // executing the donate function
+        // executing the donate function as the sender
 
         app.execute_contract(
             owner.clone(),
@@ -303,7 +321,7 @@ fn withdraw() {
             &[],
         )
         .unwrap();
-    // executing the withdraw function
+    // executing the withdraw function as the owner
     // withdraw function is executed and funds are sent to the owner if the owner is the sender
 
  assert_eq!(
@@ -320,6 +338,216 @@ fn withdraw() {
         vec![] 
     ) // vec![] is an empty vector that is returned if the contract has no funds
     // asserting the contract address has no funds after the withdraw function is executed
+    }
+
+    #[test]
+    fn withdraw_to() {
+        let owner = Addr::unchecked("owner");
+        let sender = Addr::unchecked("sender"); 
+        let receiver = Addr::unchecked("receiver");
+        // receiver is the address that the funds will be sent to
+        // the owner is the sender of the withdraw_to function in this test
+
+        let mut app = App::new(|router, _api, storage| {
+            router
+                .bank
+                .init_balance(storage, &sender, coins(10, "atom"))
+                .unwrap();
+        });
+        // setting up the app with the bank module, setting the sender's balance to 10 atom
+
+        let contract_id = app.store_code(counting_contract());
+        // storing the contract code as a contract_id using counting_contract() function
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                owner.clone(),
+                &InstantiateMsg {
+                    counter: 0,
+                    minimal_donation: coin(10, "atom"),
+                }, 
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+            // instantiating the contract with the owner as the sender, counter set to 0, and minimal_donation set to 10 atom
+            // minimal_donation is the minimum amount of funds that can be sent to the contract
+            // InstantiateMsg is the message that is sent to the contract when it is instantiated, the minimal_donation is set to 10 atom
+            // Instantiated means the contract is created and ready to be used
+
+        app.execute_contract(
+            sender.clone(),
+            contract_addr.clone(),
+            &ExecMsg::Donate {},
+            &coins(10, "atom"),
+        )
+        .unwrap();
+        // executing the donate function as the sender
+
+        app.execute_contract(
+            owner.clone(),
+            contract_addr.clone(),
+            &ExecMsg::WithdrawTo {
+                receiver: receiver.to_string(),
+                funds: coins(5, "atom"),
+            },
+            &[],
+        )
+        .unwrap();
+        // executing the withdraw_to function as the owner
+
+        assert_eq!(app.wrap().query_all_balances(owner).unwrap(), vec![]);
+        // asserting the owner has no funds after the withdraw_to function is executed
+        assert_eq!(app.wrap().query_all_balances(sender).unwrap(), vec![]);
+        // asserting the sender has no funds after the withdraw_to function is executed
+        assert_eq!(
+            app.wrap().query_all_balances(receiver).unwrap(),
+            coins(5, "atom")
+        );
+        // asserting the receiver has 5 atom after the withdraw_to function is executed
+        assert_eq!(
+            app.wrap().query_all_balances(contract_addr).unwrap(),
+            coins(5, "atom")
+        );
+        // asserting the contract address has 5 atom after the withdraw_to function is executed
+    }
+
+    #[test]
+    fn unauthorized_withdraw() {
+        let owner = Addr::unchecked("owner");
+        let member = Addr::unchecked("member");
+        // member is the address that is not the owner and is trying to execute the withdraw function
+
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                owner.clone(),
+                &InstantiateMsg {
+                    counter: 0,
+                    minimal_donation: coin(10, "atom"),
+                },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+            // instantiating the contract with the owner as the sender, counter set to 0, and minimal_donation set to 10 atom
+
+            let err = app
+                .execute_contract(
+                    member.clone(),
+                    contract_addr.clone(),
+                    &ExecMsg::Withdraw {},
+                    &[],
+                ).unwrap_err();
+                // executing the withdraw function as the member
+
+            assert_eq!(
+                ContractError::Unauthorized {
+                    owner: owner.into()
+                },
+                err.downcast().unwrap()
+                // downcasting is converting the error to a ContractError
+            );
+            // asserting the error is ContractError::Unauthorized
+    }
+    // just want to call Withdraw by an unauthorized address user
+    // we expect it to fail using unwrap_err instead of unwrap
+    // The assert_eq! macro is used to assert that the error value is equal to a ContractError::Unauthorized error. 
+
+    #[test]
+    fn unauthorized_withdraw_to() {
+        let owner = Addr::unchecked("owner");
+
+        let member = Addr::unchecked("member");
+
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                owner.clone(),
+                &InstantiateMsg {
+                    counter: 0,
+                    minimal_donation: coin(10, "atom"),
+                },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+
+            let err = app
+                .execute_contract(
+                    member,
+                    contract_addr,
+                    &ExecMsg::WithdrawTo {
+                        receiver: owner.to_string(),
+                       funds: vec![],
+                },
+                &[],
+            )
+            .unwrap_err();
+            // executing the withdraw_to function as the member towards the owner
+
+            assert_eq!(
+                ContractError::Unauthorized {
+                    owner: owner.into()
+                },
+                err.downcast().unwrap()
+            );
+    }
+
+    #[test]
+    fn unauthorized_reset() {
+        let owner = Addr::unchecked("owner");
+        let member = Addr::unchecked("member");
+        // member is the address that is not the owner and is trying to execute the reset function
+
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                owner.clone(),
+                &InstantiateMsg {
+                    counter: 0,
+                    minimal_donation: coin(10, "atom"),
+                },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+
+            let err = app
+                .execute_contract(
+                    member,
+                    contract_addr,
+                    &ExecMsg::Reset {
+                        counter: 10,
+                    },
+                    &[],
+                )
+                .unwrap_err();
+                // executing the reset function as the member
+
+            assert_eq!(
+                ContractError::Unauthorized {
+                    owner: owner.into()
+                },
+                err.downcast().unwrap()
+            );
     }
 }
 // look over

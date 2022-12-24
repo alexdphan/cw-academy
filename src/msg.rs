@@ -31,6 +31,14 @@ pub enum ExecMsg {
     counter: u64,
   }, // Reset taking a counter as an argument
   Withdraw {},
-} // we define an enum with a single variant per execution message we want to handle. 
+  WithdrawTo {
+    receiver: String, 
+    #[serde(default)] // default value is an empty vector
+    funds: Vec<Coin>, // Vec<Coin> is a vector of coins
+  },
+} 
+
+// --------- ADDITIONAL NOTES ------------ // 
+// we define an enum with a single variant per execution message we want to handle. 
 // #[serde(default)] is a macro that allows us to set a default value for a field in a struct or enum variant.
 // The serde crate is a library that provides a way to serialize and deserialize Rust data structures in a variety of formats, such as JSON, YAML, and XML.

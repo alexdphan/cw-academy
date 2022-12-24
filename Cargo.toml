@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"] #dynamic and static library
 cosmwasm-std = "1.0.0" #cosmwasm standard library
 cw-storage-plus = "1.0.1" #cosmwasm storage library (access to contract state)
 serde = "1.0.0" #serialization library
+thiserror = "1.0.38"
 
 [dev-dependencies]
 cw-multi-test = "0.16.2" #cosmwasm testing library
