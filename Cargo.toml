@@ -9,8 +9,10 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"] #dynamic and static library
 
 [dependencies]
+cosmwasm-schema = "1.1.9"
 cosmwasm-std = "1.0.0" #cosmwasm standard library
 cw-storage-plus = "1.0.1" #cosmwasm storage library (access to contract state)
+schemars = "0.8.11"
 serde = "1.0.0" #serialization library
 thiserror = "1.0.38"
 
