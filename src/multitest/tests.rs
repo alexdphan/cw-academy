@@ -16,8 +16,53 @@ const ATOM: &str = "atom";
 #[test]
 fn query_value() {
   let owner = Addr::unchecked("owner");
-  let mut app
+
+  let mut app = App::default();
+
+  let code_id = CountingContract::store_code(&mut app);
+
+ let contract = CountingContract::instantiate(
+        &mut app,
+        code_id,
+        &owner,
+        "Counting contract",
+        10,
+        coin(10, ATOM),
+    )
+    .unwrap();
+    // storing the code and instantiating the contract
+
+  let resp = contract.query_value(&app).unwrap();
+
+  assert_eq!(resp, ValueResp { value: 10 });
 }
+
+#[test]
+fn donate() {
+  let owner = Addr::unchecked("owner");
+  let sender = Addr::unchecked("sender");
+
+  let mut app = App::default();
+
+  let code_id = CountingContract::store_code(&mut app);
+
+  let contract = CountingContract::instantiate(
+    &mut app,
+    code_id,
+    &owner,
+    "Counting contract",
+    10,
+    coin(10, ATOM),
+  )
+.unwrap();
+
+contract
+    .donate(&mut app, &sender, &[]).unwrap();
+
+let resp = contract.query_value(&app).unwrap();
+assert_eq!(resp, ValueResp { value: 0 });
+}
+
 
 #[test]
 fn donate_with_funds() {

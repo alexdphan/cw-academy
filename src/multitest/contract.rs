@@ -1,14 +1,8 @@
-// to simplify the tests, we can create a contract proxy 
 // we use a contract proxy to simplify the tests, and to make them more readable
 // proxy helpers are functions that perform actions of the contract, like instantiate, execute, query, etc
 // A contract proxy is a smart contract that acts as an intermediary between a user and a target contract. 
 // The proxy contract is deployed to the blockchain and can be interacted with by users. 
-
-// these are the same functions we have in src/contract.rs, but we are using them in a different way
-// the code here is more compact and readable than the code in src/contract.rs
-// For example, we don't always have to instantiate a contract, we can just use the proxy to instantiate it once and then use it in the tests (tests.rs)
-
-// Overall, its preference to choose doing multitests or unit tests
+// More info in additional notes at the end of the file
 
 use cosmwasm_std::{Addr, Coin, StdResult};
 use cw_multi_test::{App, ContractWrapper, Executor};
@@ -160,3 +154,17 @@ impl From<CountingContract> for Addr {
 
 // track_caller: if the test fails, it will point to where the function was called, not where the error (panic) was thrown
 // if you have a call of instantiating in the contract, and the test fails because of panic, you will not see a panic being in the err.downcast().unwrap() line, but instead, it would be in the line where instantiate is called in the test. I use this attribute on every test helper which contains any panicking function - it vastly improves test debugability on some strange assumption breaks.
+
+// -------------------------- // 
+
+// these are the same functions we have in src/contract.rs, but we are using them in a different way
+// the code here is more compact and readable than the code in src/contract.rs
+// For example, we don't always have to instantiate a contract, we can just use the proxy to instantiate it once (contract.rs) and then use use the instantiated contract proxy in the tests (tests.rs)
+
+// Overall, its preference to choose doing multitests or unit tests
+
+// in this multi-test, entrypoint is in lib.rs, functions are in contract.rs, tests are in tests.rs
+
+// in unit tests, entrypoint and tests are in lib.rs, functions are in contract.rs
+
+// both use entrypoints from lib.rs and execution messages from msg.rs
