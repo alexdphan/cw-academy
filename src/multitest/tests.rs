@@ -51,7 +51,7 @@ fn donate() {
     code_id,
     &owner,
     "Counting contract",
-    10,
+    0,
     coin(10, ATOM),
   )
 .unwrap();
