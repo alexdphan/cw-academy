@@ -1,6 +1,14 @@
-// here, we keep all the contract proxy helpers for our test
+// to simplify the tests, we can create a contract proxy 
+// we use a contract proxy to simplify the tests, and to make them more readable
+// proxy helpers are functions that perform actions of the contract, like instantiate, execute, query, etc
 // A contract proxy is a smart contract that acts as an intermediary between a user and a target contract. 
 // The proxy contract is deployed to the blockchain and can be interacted with by users. 
+
+// these are the same functions we have in src/contract.rs, but we are using them in a different way
+// the code here is more compact and readable than the code in src/contract.rs
+// For example, we don't always have to instantiate a contract, we can just use the proxy to instantiate it once and then use it in the tests (tests.rs)
+
+// Overall, its preference to choose doing multitests or unit tests
 
 use cosmwasm_std::{Addr, Coin, StdResult};
 use cw_multi_test::{App, ContractWrapper, Executor};

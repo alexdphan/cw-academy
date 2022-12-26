@@ -3,13 +3,21 @@
 // a new module to keep all the tests there and have a more ordered codebase
 
 use cosmwasm_std::{coin, coins, Addr};
-use cw_multi_test::App;
+use cw_multi_test::App; 
+
+use crate::error::ContractError;
 
 use crate::msg::ValueResp;
 
 use super::contract::CountingContract;
 
 const ATOM: &str = "atom";
+
+#[test]
+fn query_value() {
+  let owner = Addr::unchecked("owner");
+  let mut app
+}
 
 #[test]
 fn donate_with_funds() {
