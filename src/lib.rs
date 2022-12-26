@@ -11,6 +11,8 @@ use msg::InstantiateMsg;
 mod contract; // private because contract contains internal logic functions, contains all msg handlers 
 pub mod error; // using module file error.rs
 pub mod msg; // using module file msg.rs
+#[cfg(test)] // conditionally compile code based on whether we are running tests or not
+pub mod multitest;
 mod state;
 // these modules can be used by other modules in the crate, but not by code outside the crate
 
@@ -193,51 +195,51 @@ let contract_addr = app
     }
 
     #[test]
-fn donate_with_funds() { // test to check if the contract is able to receive funds
+// fn donate_with_funds() { // test to check if the contract is able to receive funds
 
-    let sender = Addr::unchecked("sender"); // setting sender address
+//     let sender = Addr::unchecked("sender"); // setting sender address
 
-    let mut app = App::new(|router, _api, storage| {
-        router
-            .bank
-            .init_balance(storage, &sender, coins(10, "atom"))
-            .unwrap();
-    }); 
-    // setting up the app with the bank module
-    // You would have to change how you create an app to use the bank module (allows to set initial balances for your accounts)
-    // init_balance is a function that initializes the balance of the sender, here we are setting the sender's balance to 10 atom
+//     let mut app = App::new(|router, _api, storage| {
+//         router
+//             .bank
+//             .init_balance(storage, &sender, coins(10, "atom"))
+//             .unwrap();
+//     }); 
+//     // setting up the app with the bank module
+//     // You would have to change how you create an app to use the bank module (allows to set initial balances for your accounts)
+//     // init_balance is a function that initializes the balance of the sender, here we are setting the sender's balance to 10 atom
 
-    let contract_id = app.store_code(counting_contract());
+//     let contract_id = app.store_code(counting_contract());
 
-    let contract_addr = app
-        .instantiate_contract(
-            contract_id,
-            Addr::unchecked("sender"),
-            &InstantiateMsg {
-                counter: 0,
-                minimal_donation: coin(10, "atom"),
-            },
-            &[],
-            "Counting contract",
-            None,
-        )
-        .unwrap();
+//     let contract_addr = app
+//         .instantiate_contract(
+//             contract_id,
+//             Addr::unchecked("sender"),
+//             &InstantiateMsg {
+//                 counter: 0,
+//                 minimal_donation: coin(10, "atom"),
+//             },
+//             &[],
+//             "Counting contract",
+//             None,
+//         )
+//         .unwrap();
 
-    app.execute_contract(
-        Addr::unchecked("sender"),
-        contract_addr.clone(),
-        &ExecMsg::Donate {},
-        &coins(10, "atom"),
-    )
-    .unwrap();
+//     app.execute_contract(
+//         Addr::unchecked("sender"),
+//         contract_addr.clone(),
+//         &ExecMsg::Donate {},
+//         &coins(10, "atom"),
+//     )
+//     .unwrap();
 
-    let resp: ValueResp = app
-        .wrap()
-        .query_wasm_smart(contract_addr, &QueryMsg::Value {})
-        .unwrap();
+//     let resp: ValueResp = app
+//         .wrap()
+//         .query_wasm_smart(contract_addr, &QueryMsg::Value {})
+//         .unwrap();
 
-    assert_eq!(resp, ValueResp { value: 1 });
-}
+//     assert_eq!(resp, ValueResp { value: 1 });
+// }
 
 #[test]
 fn expecting_no_funds() { // test to check if the contract is able to receive funds, expect no funds

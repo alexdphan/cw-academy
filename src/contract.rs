@@ -57,7 +57,7 @@ pub mod query {
             .add_attribute("counter", counter.to_string());
           // adding attributes to the wasm event (only default event type that is emitted from every execution)
       Ok(resp)
-      }
+      } 
     // similar to instantiate, but update/incrementing the counter
     // this function, poke, there is a storage and info (sender) being passed as an argument to the save method of the COUNTER object.
     // returns a result of type StdResult<Response>
