@@ -106,5 +106,4 @@ contract
     // the contract now has 20 atom (from the CountingContract struct)
     // the owner still has 10 atom (from the CountingContract struct)
     // the sender still has 0 atom (from the CountingContract struct)
-    // the bank module still has 0 atom (from the CountingContract struct)
 }

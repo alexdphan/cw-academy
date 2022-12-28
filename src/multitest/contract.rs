@@ -163,7 +163,7 @@ impl From<CountingContract> for Addr {
 
 // Overall, its preference to choose doing multitests or unit tests
 
-// in this multi-test, entrypoint is in lib.rs, functions are in contract.rs, tests are in tests.rs
+// in this multi-test, entrypoint is in lib.rs, functions are in contract.rs, tests are in tests.rs. The modules are in the file multitest.rs
 
 // in unit tests, entrypoint and tests are in lib.rs, functions are in contract.rs
 

@@ -1,5 +1,8 @@
+#[cfg(not(feature = "library"))] // only compile the entry_point macro if the library feature is not enabled
+use cosmwasm_std::entry_point; // import the entry_point macro from cosmwasm_std
+
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+   to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 
 use error::ContractError; 
@@ -11,15 +14,18 @@ use msg::InstantiateMsg;
 mod contract; // private because contract contains internal logic functions, contains all msg handlers 
 pub mod error; // using module file error.rs
 pub mod msg; // using module file msg.rs
-#[cfg(test)] 
-pub mod multitest; // compile only when running tests
+#[cfg(any(test, feature = "tests"))]
+pub mod multitest; // compile only when running tests, only when the feature tests is enabled
 mod state;
 // these modules can be used by other modules in the crate, but not by code outside the crate
 
 // In summary, the use keyword is used to import symbols from other modules into the current scope, while the pub keyword is used to make a symbol public and available for use from other modules.
 
 // In the context of a smart contract, an entry point is a function that can be called by external users or other contracts. Entry points serve as the public interface for a contract, allowing external entities to interact with it and execute its functions.
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)] 
+// used as an entry point 
+// cfg_attr attribute allows you to specify a condition under which the attribute should be applied. 
+// Hence, the function will be an entry point only if the feature library is not enabled.
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
@@ -29,7 +35,7 @@ pub fn instantiate(
     contract::instantiate(deps, info, msg.counter, msg.minimal_donation) 
 } // entry point instantiate function for contract.rs
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -56,7 +62,7 @@ pub fn execute(
 }
 
 // Deps is read-only, DepsMut is read-write on blockchain state
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
     use contract::query;
     use msg::QueryMsg::*;
