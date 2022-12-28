@@ -27,14 +27,19 @@ impl CountingContract {
 
   #[track_caller]
 // track_caller: if the test fails, it will show the line number of the test that failed
-  pub fn instantiate(
+// info on 'a: https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html
+// https://stackoverflow.com/questions/47640550/what-is-a-in-rust-language#:~:text=The%20'a%20reads%20'the%20lifetime,which%20lifetimes%20are%20one%20kind.
+  pub fn instantiate<'a>(
     app:&mut App,
     code_id: u64,
     sender: &Addr, // made it as a borrow instead of owned value (clone), saves memory
     label: &str,
+    admin: impl Into<Option<&'a Addr>>, // passing a reference to an address, so we can pass a reference, passed an additional lifetime parameter 'a
     counter: impl Into<Option<u64>>,
     minimal_donation: Coin,
   ) -> StdResult<Self> {
+    let admin = admin.into();
+    // assigning the admin value to admin. into() is a method that converts the value into the usually inferred input type
     let counter = counter.into().unwrap_or_default();
     // unwrap_or_default: if counter is not provided, use default value (can be provided from #[serde(default)]
 
