@@ -4,49 +4,72 @@
 // Modules (mod) also allow us to declare items that are only available within a given scope, rather than making them available to the entire crate.
 
 use cosmwasm_std::{Coin, DepsMut, MessageInfo, Response, StdResult};
-use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
+use cw_storage_plus::Item;
 
-pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donation: Coin)  -> StdResult<Response> {
-  COUNTER.save(deps.storage, &counter)?;
-  MINIMAL_DONATION.save(deps.storage, &minimal_donation)?; // minimal_donation comes from Coin
+use crate::state::{State, OWNER, STATE};
+
+pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donation: Coin) -> StdResult<Response> {
+  STATE.save(deps.storage, &State {
+    counter,
+    minimal_donation,
+  })?;
   OWNER.save(deps.storage, &info.sender)?; // info.sender comes from MessageInfo
   Ok(Response::new())
 } // initialize contract state
+
+pub fn migrate(deps: DepsMut) -> StdResult<Response> {
+    const COUNTER: Item<u64> = Item::new("counter");
+    const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
+
+    let counter = COUNTER.load(deps.storage)?;
+    let minimal_donation = MINIMAL_DONATION.load(deps.storage)?;
+
+    STATE.save(
+        deps.storage,
+        &State {
+            counter,
+            minimal_donation,
+        },
+    )?;
+
+    Ok(Response::new())
+}// migrate contract state
 
 // query is a read operation
 pub mod query {
   use cosmwasm_std::{Deps, StdResult};
   
   use crate::msg::ValueResp;
-  use crate::state::COUNTER;
+  use crate::state::STATE;
 
     pub fn value(deps: Deps) -> StdResult<ValueResp> { // Deps to access contract/bc storage
-      let value = COUNTER.load(deps.storage)?; 
+      let value = STATE.load(deps.storage)?.counter; 
       // error handling, so we use ?
       // load function, loading from the state, taking state accessor as an arguement
       Ok(ValueResp { value })
     }
   } 
   // load vs save: load is a read-only operation, save is a write operation.
+  // we have a function called value, which takes a Deps argument and returns a result of type StdResult<ValueResp>
+  // it is a read-only operation (pub mod query), so we use the load function on the STATE constant to load the value from the contract's storage.
 
   // execute is a write operation
   pub mod exec {
     use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
 
     use crate::error::ContractError;
-    use crate::state::{COUNTER, MINIMAL_DONATION, OWNER};
+    use crate::state::{OWNER, STATE};
     
      pub fn donate(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
         // don't always want to update counter, delayed updating the counter, make it mutable
-        let mut counter = COUNTER.load(deps.storage)?; 
-        let minimal_donation = MINIMAL_DONATION.load(deps.storage)?;
+      let mut state = STATE.load(deps.storage)?;
 
         // |coin| is a closure, a function that can be passed as an argument to another function
-      if minimal_donation.amount.is_zero() || info.funds.iter().any(|coin| {
-        coin.denom == minimal_donation.denom && coin.amount >= minimal_donation.amount
+      if state.minimal_donation.amount.is_zero() || info.funds.iter().any(|coin| {
+        coin.denom == state.minimal_donation.denom && coin.amount >= state.minimal_donation.amount
       }) {
-        counter += 1;
-        COUNTER.save(deps.storage, &counter)?;
+        state.counter += 1;
+        STATE.save(deps.storage, &state)?;
       }
       // function checks whether the amount field of the MINIMAL_DONATION struct is zero, or if there is a coin in the funds field of the MessageInfo struct with a denom matching the denom field of the MINIMAL_DONATION struct and an amount greater than or equal to the amount field of the MINIMAL_DONATION struct. 
       // If either of these conditions is true, the counter variable is incremented by 1 and the updated value is saved back to the contract's storage using the save method on the COUNTER constant.
@@ -54,7 +77,7 @@ pub mod query {
           let resp = Response::new()
             .add_attribute("action", "poke")
             .add_attribute("sender", info.sender.as_str())
-            .add_attribute("counter", counter.to_string());
+            .add_attribute("counter", state.counter.to_string());
           // adding attributes to the wasm event (only default event type that is emitted from every execution)
       Ok(resp)
       } 
@@ -69,7 +92,14 @@ pub mod query {
             });
         }
 
-        COUNTER.save(deps.storage, &counter)?;
+ STATE.update(deps.storage, |mut state| -> StdResult<_> {
+            state.counter = counter;
+            Ok(state)
+        })?;
+// update function, which takes a closure as an argument and returns a result of type StdResult<Response>
+// deps.storage is passed as an argument to the update function, which is a method on the STATE constant
+// mut state is a mutable reference to the state variable, which is a mutable reference to the value returned by the load function on the STATE constant
+// the counter field of the state variable is set to the value of the counter argument
 
         let resp = Response::new()
             .add_attribute("action", "reset")
@@ -78,6 +108,7 @@ pub mod query {
 
                     Ok(resp)
   } // reset counter to 0
+  // Withdraws unthouched
 
   pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     let owner = OWNER.load(deps.storage)?;

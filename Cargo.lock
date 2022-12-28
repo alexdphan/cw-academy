@@ -145,11 +145,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "counting_contract"
+name = "counting-contract"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-multi-test",
+ "cw-storage-plus",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "counting-contract"
+version = "0.2.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "counting-contract 0.1.0",
  "cw-multi-test",
  "cw-storage-plus",
  "schemars",

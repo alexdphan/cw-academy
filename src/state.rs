@@ -1,18 +1,19 @@
 use cosmwasm_std::{Addr, Coin};
 use cw_storage_plus::Item;
+use serde::{Deserialize, Serialize};
 
-pub const COUNTER: Item<u64> = Item::new("counter"); // key is "counter" attached to the binary data
-// Item is a type accessing a single object that may exist in the blockchain storage
-// The string passed to Item on instantiation is part of a key to how the data would be addressed in the blockchain. 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct State {
+  pub counter: u64,
+  pub minimal_donation: Coin,
+}
+
+pub const STATE: Item<State> = Item::new("state"); // key is "state" attached to the binary data. Accessing the State value on the storage
+pub const OWNER: Item<Addr> = Item::new("owner"); // key is "owner" attached to the binary data. Accessing the Addr value on the storage
+
 // Item would use this value to access data, taking care of serialization and deserialization of it, so you don't need to work on raw binary data.
-pub const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
-// A new Item, accessing the Coin value on the storage. 
-// Coin is a type representing a single native token amount containing a denominator (its unique identifier) and number of tokens sent
-pub const OWNER: Item<Addr> = Item::new("owner");
-// Addr is a type representing a Cosmos SDK address, which is a 20-byte value that is used to identify an account on the Cosmos Hub.
 
-
-
+// The string passed to Item on instantiation is part of a key to how the data would be addressed in the blockchain. 
 
 // --------- ADDITIONAL NOTES --------- // 
 // 1. Add const in state.rs

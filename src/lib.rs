@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point; // import the entry_point macro from cosmwasm_std
 
 use cosmwasm_std::{
-   to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
 };
 
 use error::ContractError; 
@@ -32,8 +32,10 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    contract::instantiate(deps, info, msg.counter, msg.minimal_donation) 
-} // entry point instantiate function for contract.rs
+    contract::instantiate(deps, info, msg.counter, msg.minimal_donation)
+    // calls the instantiate function for contract.rs, if the feature library is not enabled
+} // entry point instantiate function for contract.rs, if the feature library is not enabled
+// saves the state and owner to the blockchain, response is empty, but it is a success
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
@@ -71,11 +73,23 @@ pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
         Value {} => to_binary(&query::value(deps)?),
     }
 }
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    contract::migrate(deps)
+}
+
+
 // returns binary data (JSON serialized responses instead of Response (for Query Messages)
 // pub fn can be called from anywhere
 // fn can only be called from within the current module
 
+// ----------- ADDITIONAL NOTES ----------- //
+// Ok(Response::new()) - creates a new response instance that will have default values for all fields
+// Ok(Response::default()) - also creates a new response instance that will have default values for all fields, but it allows us to use Default::default() synctax to create a default value for any type that implements the Default trait
 
+// In general, you can use either Response::new() or Response::default() to create a new Response instance with default values for all fields. 
+// The main difference is that Response::default() uses the Default trait, which allows you to use the Default::default() syntax and may be more convenient in some cases.
 
 // // -------------- TESTS -------------- // 
 // // tests can be in another file, but we can also put them here in lib crate

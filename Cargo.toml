@@ -1,6 +1,6 @@
 [package]
-name = "counting_contract"
-version = "0.1.0"
+name = "counting-contract"
+version = "0.2.0" # updates to 0.2.0 when we change the contract
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,9 +9,12 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"] #dynamic and static library
 
 # https://doc.rust-lang.org/cargo/reference/features.html
-[features] # allows to compile some parts of our library depending on which features are chosen by the user and enables (library and tests)
+[features]
 library = [] # enables when a crate is used as a dependency
 tests = ["library", "cw-multi-test"] # enables our mutitest helpers and only in dev dependencies of other contracts
+
+ # allows to compile some parts of our library depending on which features are chosen by the user and enables (library and tests)
+#features are used to enable/disable certain dependencies
 
 [dependencies]
 cosmwasm-schema = "1.1.9"
@@ -24,3 +27,6 @@ thiserror = "1.0.38"
 
 [dev-dependencies]
 cw-multi-test = "0.16.2" #cosmwasm testing library
+counting-contract-0_1 = { path = "../counting-contract", package = "counting-contract", features = ["tests"] } 
+# cargo add counting-contract \ --rename counting-contract-0_1 --path ../counting-contract --features tests --dev
+  #importing the contract we want to test, features = ["tests"] enables the tests feature in the imported contract, renaming the package to counting-contract-0_1 (no same name allowed), would use --git flag instead of --path to point to some git tag instead (using git - counting-contract@0.1), required feature library (enabled automatically) in the imported contract, specified a dependency to be only used for development (tests and examples)

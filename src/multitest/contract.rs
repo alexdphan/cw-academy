@@ -4,12 +4,12 @@
 // The proxy contract is deployed to the blockchain and can be interacted with by users. 
 // More info in additional notes at the end of the file
 
-use cosmwasm_std::{Addr, Coin, StdResult};
+use cosmwasm_std::{Addr, Coin, Empty, StdResult};
 use cw_multi_test::{App, ContractWrapper, Executor};
 
 use crate::error::ContractError;
 use crate::msg::{ExecMsg, InstantiateMsg, QueryMsg, ValueResp};
-use crate::{execute, instantiate, query};
+use crate::{execute, instantiate, migrate, query};
 
 pub struct CountingContract(Addr);
 // Creating the proxy type
@@ -19,10 +19,10 @@ impl CountingContract {
     &self.0
   }
   // Adding utilities to get access to the underlying address
- pub fn store_code(app: &mut App) -> u64 {
-    let contract = ContractWrapper::new(execute, instantiate, query);
+pub fn store_code(app: &mut App) -> u64 {
+    let contract = ContractWrapper::new(execute, instantiate, query).with_migrate(migrate);
     app.store_code(Box::new(contract))
-  }
+}
   // Store the code of the contract in the blockchain, loading its contract code
 
   #[track_caller]
@@ -34,32 +34,42 @@ impl CountingContract {
     code_id: u64,
     sender: &Addr, // made it as a borrow instead of owned value (clone), saves memory
     label: &str,
-    admin: impl Into<Option<&'a Addr>>, // passing a reference to an address, so we can pass a reference, passed an additional lifetime parameter 'a
-    counter: impl Into<Option<u64>>,
+   admin: impl Into<Option<&'a Addr>>, // passing a reference to an address, so we can pass a reference, passed an additional lifetime parameter 'a
+    counter: impl Into<Option<u64>>, 
     minimal_donation: Coin,
   ) -> StdResult<Self> {
     let admin = admin.into();
-    // assigning the admin value to admin. into() is a method that converts the value into the usually inferred input type
+       // assigning the admin value to admin. into() is a method that converts the value into the usually inferred input type
     let counter = counter.into().unwrap_or_default();
     // unwrap_or_default: if counter is not provided, use default value (can be provided from #[serde(default)]
 
-    app.instantiate_contract(
-      code_id,
-      sender.clone(),
-      &InstantiateMsg {
-        counter,
-        minimal_donation,
-      },
-      &[],
-      label,
-      None,
-    )
-    .map(CountingContract)
-    .map_err(|err| err.downcast().unwrap())
-  }
+      app.instantiate_contract(
+            code_id,
+            sender.clone(),
+            &InstantiateMsg {
+                counter,
+                minimal_donation,
+            },
+            &[],
+            label,
+            admin.map(Addr::to_string),
+        )
+        .map(CountingContract)
+        .map_err(|err| err.downcast().unwrap())
+    }
   // Instantiate the contract, passing the code_id, sender, label, counter, and minimal_donation
   // We can eliminate arguments we don't need for our contract, in this case, we don't need funds, so we pass an empty slice, and we don't need an admin, so we pass None
   // .map_err(|err| err.downcast().unwrap()) convert the error type to the one we want, in this case, we want to convert the error type and return the error exactly as it is
+
+    #[track_caller]
+    pub fn migrate(app: &mut App, contract: Addr, code_id: u64, sender: &Addr) -> StdResult<Self> {
+        app.migrate_contract(sender.clone(), contract.clone(), &Empty {}, code_id)
+            .map_err(|err| err.downcast().unwrap())
+            .map(|_| Self(contract))
+    }
+  // Migrate the contract, passing the contract, code_id, and sender
+  // Here, we don't need to pass any arguments, so we pass an empty struct, Empty{}
+  // .map(|_| Self(contract)) map the result to a new instance of the contract, passing the contract, returning contract address wrapped in the new helper type
 
  #[track_caller]
  // track_caller: if the test fails, it will point to where the function was called, not where the error (panic) was thrown
