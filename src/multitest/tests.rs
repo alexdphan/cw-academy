@@ -7,6 +7,7 @@ use crate::state::{State, STATE};
 
 use super::contract::CountingContract;
 use counting_contract_0_1::multitest::contract::CountingContract as CountingContract_0_1;
+// used counting_contract_0_1 to avoid name conflict with the current contract, which is also called CountingContract. In addition, this is a path to counting contract v1.0.0, which we set in dev-dependencies in Cargo.toml
 
 const ATOM: &str = "atom";
 

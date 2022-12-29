@@ -31,3 +31,4 @@ cw-multi-test = "0.16.2" #cosmwasm testing library
 counting-contract-0_1 = { path = "../counting-contract", package = "counting-contract", features = ["tests"] } 
 # cargo add counting-contract \ --rename counting-contract-0_1 --path ../counting-contract --features tests --dev
   #importing the contract we want to test, features = ["tests"] enables the tests feature in the imported contract, renaming the package to counting-contract-0_1 (no same name allowed), would use --git flag instead of --path to point to some git tag instead (using git - counting-contract@0.1), required feature library (enabled automatically) in the imported contract, specified a dependency to be only used for development (tests and examples)
+  # we use features = ["tests"] to enable the tests feature in the imported contract
