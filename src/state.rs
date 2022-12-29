@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct State {
   pub counter: u64,
   pub minimal_donation: Coin,
+  pub owner: Addr,
 }
 
 pub const STATE: Item<State> = Item::new("state"); // key is "state" attached to the binary data. Accessing the State value on the storage

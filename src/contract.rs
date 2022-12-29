@@ -3,33 +3,39 @@
 
 // Modules (mod) also allow us to declare items that are only available within a given scope, rather than making them available to the entire crate.
 
-use cosmwasm_std::{Coin, DepsMut, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Addr, Coin, DepsMut, MessageInfo, Response, StdResult};
 use cw_storage_plus::Item;
 
-use crate::state::{State, OWNER, STATE};
+use crate::state::{State, STATE};
 
 pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donation: Coin) -> StdResult<Response> {
   STATE.save(deps.storage, &State {
     counter,
     minimal_donation,
-  })?;
-  OWNER.save(deps.storage, &info.sender)?; // info.sender comes from MessageInfo
-  Ok(Response::new())
-} // initialize contract state
+    owner: info.sender,
+        },
+    )?;
+    Ok(Response::new())
+}
+// initialize contract state
 
 pub fn migrate(deps: DepsMut) -> StdResult<Response> {
     const COUNTER: Item<u64> = Item::new("counter");
     const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
-    // assigning the COUNTER and MINIMAL_DONATION to the new state which will be used to load the data from the old state
+    const OWNER: Item<Addr> = Item::new("owner");
+      // assigning the COUNTER, MINIMAL_DONATION, and OWNER to the new state which will be used to load the data from the old state
     let counter = COUNTER.load(deps.storage)?; 
     // load counter old state
     let minimal_donation = MINIMAL_DONATION.load(deps.storage)?;
     // loading the minimal_donation from the old state
+    let owner = OWNER.load(deps.storage)?;
+    // loading the owner from the old state
     STATE.save(
         deps.storage, // saving the data to the new state
         &State { // using the State struct to save the data to the new state
             counter,
             minimal_donation,
+            owner,
         },
     )?;
     // saving the data to the new state
@@ -61,8 +67,8 @@ pub mod query {
     use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
 
     use crate::error::ContractError;
-    use crate::state::{OWNER, STATE};
-    
+    use crate::state::STATE;
+
      pub fn donate(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
         // don't always want to update counter, delayed updating the counter, make it mutable
       let mut state = STATE.load(deps.storage)?;
@@ -89,20 +95,15 @@ pub mod query {
     // returns a result of type StdResult<Response>
 
         pub fn reset(deps: DepsMut, info: MessageInfo, counter: u64) -> Result<Response, ContractError> {
-          let owner = OWNER.load(deps.storage)?; if info.sender != owner {
-               return Err(ContractError::Unauthorized {
-                owner: owner.to_string(),
-            });
-        }
+         let mut state = STATE.load(deps.storage)?;
+         if info.sender != state.owner {
+           return Err(ContractError::Unauthorized {
+            owner: state.owner.to_string(),
+           });
+         } 
 
- STATE.update(deps.storage, |mut state| -> StdResult<_> {
-            state.counter = counter;
-            Ok(state)
-        })?;
-// update function, which takes a closure as an argument and returns a result of type StdResult<Response>
-// deps.storage is passed as an argument to the update function, which is a method on the STATE constant
-// mut state is a mutable reference to the state variable, which is a mutable reference to the value returned by the load function on the STATE constant
-// the counter field of the state variable is set to the value of the counter argument
+         state.counter = counter;
+          STATE.save(deps.storage, &state)?;
 
         let resp = Response::new()
             .add_attribute("action", "reset")
@@ -114,7 +115,7 @@ pub mod query {
   // Withdraws unthouched
 
   pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
-    let owner = OWNER.load(deps.storage)?;
+    let owner = STATE.load(deps.storage)?.owner;
     if info.sender != owner {
       return Err(ContractError::Unauthorized {
        owner: owner.to_string(),
@@ -147,7 +148,7 @@ pub mod query {
     receiver: String,
     funds: Vec<Coin>,
   ) -> Result<Response, ContractError> {
-    let owner = OWNER.load(deps.storage)?;
+    let owner = STATE.load(deps.storage)?.owner;
     if info.sender != owner {
       return Err(ContractError::Unauthorized {
         owner: owner.to_string(),
