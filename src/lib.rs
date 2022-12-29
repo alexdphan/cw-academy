@@ -77,8 +77,9 @@ pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
     contract::migrate(deps)
-}
-
+} // entry point migrate function for contract.rs, if the feature library is not enabled
+// returns a StdResult<Response> type, which is an alias for Result<Response, StdError>
+// using contract.rs migrate function with deps as parameter
 
 // returns binary data (JSON serialized responses instead of Response (for Query Messages)
 // pub fn can be called from anywhere
@@ -572,5 +573,3 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
 //             );
 //     }
 // }
-
-//somethjing

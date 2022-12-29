@@ -20,20 +20,23 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donat
 pub fn migrate(deps: DepsMut) -> StdResult<Response> {
     const COUNTER: Item<u64> = Item::new("counter");
     const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
-
-    let counter = COUNTER.load(deps.storage)?;
+    // assigning the COUNTER and MINIMAL_DONATION to the new state which will be used to load the data from the old state
+    let counter = COUNTER.load(deps.storage)?; 
+    // load counter old state
     let minimal_donation = MINIMAL_DONATION.load(deps.storage)?;
-
+    // loading the minimal_donation from the old state
     STATE.save(
-        deps.storage,
-        &State {
+        deps.storage, // saving the data to the new state
+        &State { // using the State struct to save the data to the new state
             counter,
             minimal_donation,
         },
     )?;
+    // saving the data to the new state
 
     Ok(Response::new())
 }// migrate contract state
+// similar to instantiation, but we are loading the data from the old state and saving it to the new state
 
 // query is a read operation
 pub mod query {

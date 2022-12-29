@@ -346,8 +346,11 @@ fn migration() {
     // donate 10 atom to contract
 
     let contract =
-        CountingContract::migrate(&mut app, contract.into(), new_code_id, &admin).unwrap();
+        CountingContract::migrate(&mut app, contract.into(), new_code_id,
+        &admin).unwrap();
+        // contract.into() converts the old contract to a new contract, which would use the new code_id
     // migrate old contract to new contract
+    // the sender would be the admin, who is allowed to migrate the old contract and is the owner of the new contract
 
     let resp = contract.query_value(&app).unwrap();
     assert_eq!(resp, ValueResp { value: 1 });
@@ -355,6 +358,7 @@ fn migration() {
     // the value should be 1, because the old contract donated 10 atom to the new contract and the counter was incremented by 1
 
     let state = STATE.query(&app.wrap(), contract.addr().clone()).unwrap();
+    // query state of new contract
     assert_eq!(
         state,
         State {
@@ -362,6 +366,6 @@ fn migration() {
             minimal_donation: coin(10, ATOM)
         }
     );
-    // query state of new contract
+    // assert that the state of the new contract is correct
 }
 // test to ensure that the old contract can be migrated to the new one

@@ -21,9 +21,13 @@ impl CountingContract {
   // Adding utilities to get access to the underlying address
 pub fn store_code(app: &mut App) -> u64 {
     let contract = ContractWrapper::new(execute, instantiate, query).with_migrate(migrate);
-    app.store_code(Box::new(contract))
+    // assigning the contract to the contract wrapper (represents a sc on a blockchain) (with_migrate), and adding the migrate function
+    app.store_code(Box::new(contract)) 
+    // use app to store the code of the contract in the blockchain
+    // storing the contract in the blockchain, parameter is a Box that contains the new contract
 }
-  // Store the code of the contract in the blockchain, loading its contract code
+// Store the code of the contract in the blockchain, loading its contract code
+// telling the multitest where to find the migration function
 
   #[track_caller]
 // track_caller: if the test fails, it will show the line number of the test that failed
@@ -64,11 +68,11 @@ pub fn store_code(app: &mut App) -> u64 {
     #[track_caller]
     pub fn migrate(app: &mut App, contract: Addr, code_id: u64, sender: &Addr) -> StdResult<Self> {
         app.migrate_contract(sender.clone(), contract.clone(), &Empty {}, code_id)
-            .map_err(|err| err.downcast().unwrap())
-            .map(|_| Self(contract))
+            .map_err(|err| err.downcast().unwrap()) // convert the error type and return the error exactly as it is
+            .map(|_| Self(contract)) // map the result to a new instance of the contract
     }
   // Migrate the contract, passing the contract, code_id, and sender
-  // Here, we don't need to pass any arguments, so we pass an empty struct, Empty{}
+  // Here, we don't need to pass any msg arguments, so we pass an empty struct, Empty{}
   // .map(|_| Self(contract)) map the result to a new instance of the contract, passing the contract, returning contract address wrapped in the new helper type
 
  #[track_caller]
