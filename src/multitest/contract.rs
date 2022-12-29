@@ -34,7 +34,7 @@ pub fn store_code(app: &mut App) -> u64 {
 // info on 'a: https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html
 // https://stackoverflow.com/questions/47640550/what-is-a-in-rust-language#:~:text=The%20'a%20reads%20'the%20lifetime,which%20lifetimes%20are%20one%20kind.
   pub fn instantiate<'a>(
-    app:&mut App,
+    app:&mut App, // borrows the mutable app from the test (in multitest), we can use it to instantiate the contract
     code_id: u64,
     sender: &Addr, // made it as a borrow instead of owned value (clone), saves memory
     label: &str,

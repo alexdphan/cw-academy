@@ -369,4 +369,61 @@ fn migration() {
     );
     // assert that the state of the new contract is correct
 }
+
+#[test]
+fn migration_same_version() {
+    let admin = Addr::unchecked("admin");
+    let owner = Addr::unchecked("owner");
+    let sender = Addr::unchecked("sender");
+
+    let mut app = App::new(|router, _api, storage| {
+        router
+            .bank
+            .init_balance(storage, &sender, coins(10, "atom"))
+            .unwrap();
+    }); // using router, api, and storage to initialize balance with 10 atom to sender
+    // || is a closure, which is a function that can be passed as an argument
+
+    let code_id = CountingContract::store_code(&mut app);
+    // CountingContract is a struct that has a function called store_code
+    // store_code is a function that takes a mutable reference to app and returns a code_id
+    // &mut app is a mutable reference to app, which is passed to store_code
+    // app is a mutable reference to App, App is a struct that refers to diffremt components of the blockchain like bank, router, api, and storage
+    // assigning this to code_id
+
+    let contract = CountingContract::instantiate(
+        &mut app,
+        code_id,
+        &owner,
+        "Counting contract",
+        &admin,
+        None,
+        coin(10, ATOM),
+    )
+    .unwrap();
+    // instantiate contract
+
+    contract
+        .donate(&mut app, &sender, &coins(10, ATOM))
+        .unwrap();
+        // donate 10 atom to contract
+
+    let resp = contract.query_value(&app).unwrap();
+    // assigning resp to the value of the contract
+
+    assert_eq!(resp, ValueResp { value: 1 });
+    // value should be 1, because the contract donated 10 atom to itself and the counter was incremented by 1
+
+    let state = STATE.query(&app.wrap(), contract.addr().clone()).unwrap();
+    // assigning state to the state of the contract by querying the state
+
+    assert_eq!(
+        state,
+        State {
+            counter: 1,
+            minimal_donation: coin(10, ATOM),
+            owner,
+        }
+    ); // assert that the state of the contract is correct, the state should be 1, the minimal donation should be 10 atom, and the owner should be owner
+}
 // test to ensure that the old contract can be migrated to the new one
