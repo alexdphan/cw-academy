@@ -18,6 +18,13 @@ pub enum ContractError {
   Unauthorized { owner: String },
   // Unauthorized varient in the enum type
 
+  #[error("Invalid contract to migrate from: {contract}")]
+  InvalidContract {contract: String}, 
+  // InvalidContract varient in the enum type
+
+  #[error("Unsupported contract version for migration: {version}")]
+  InvalidContractVersion { version: String },
+  // InvalidContractVersion varient in the enum type
 }
 // This way, we can use the ContractError type in our smart contract, still being able to return errors occurring in cosmwasm-std. 
 // The additional #[from] attribute tells thiserror to generate the From trait, converting the underlying type to the error variant (in this case: impl From<StdError> for ContractError). 

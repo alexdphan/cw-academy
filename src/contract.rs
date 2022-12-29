@@ -4,11 +4,19 @@
 // Modules (mod) also allow us to declare items that are only available within a given scope, rather than making them available to the entire crate.
 
 use cosmwasm_std::{Addr, Coin, DepsMut, MessageInfo, Response, StdResult};
+use cw2::{get_contract_version, set_contract_version};
 use cw_storage_plus::Item;
 
+use crate::error::ContractError;
 use crate::state::{State, STATE};
 
+const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION"); 
+// notice the use of env! macro, which allows us to access environment variables at compile time, the use of const is important here to prevent mutable access (changes)
+
 pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donation: Coin) -> StdResult<Response> {
+  set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
   STATE.save(deps.storage, &State {
     counter,
     minimal_donation,
@@ -19,29 +27,54 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donat
 }
 // initialize contract state
 
-pub fn migrate(deps: DepsMut) -> StdResult<Response> {
+pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
+    let contract_version = get_contract_version(deps.storage)?;
+
+    if contract_version.contract != CONTRACT_NAME {
+        return Err(ContractError::InvalidContract {
+            contract: contract_version.contract,
+        });
+    }
+
+ let resp = match contract_version.version.as_str() {
+        "0.1.0" => migrate_0_1_0(deps.branch()).map_err(ContractError::from)?,
+        // branch function we call on deps, utility that allows having another copy of a mutable state in a single contract, like a clone() function
+        "0.2.0" => return Ok(Response::default()), // no migration needed since we are already at 0.2.0
+        version => {
+            return Err(ContractError::InvalidContractVersion {
+                version: version.into(),
+            })
+        } // finally, we update the contract version to the new value so the contract version would be valid on future migrations
+    };
+    
+    // loaded version of the contract, then we validate if the contract name didn't change
+    // if it did, we return an error, if not we match the version with the migrate functions
+    // works if CONTRACT_VERSION is a constant, if its a variable, it would be treated as a generic match, and the last branch would be unreachable
+
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    Ok(resp)
+  } // migrate contract state to a different version (0.1.0 or 0.2.0)
+  // It would also be a great idea to keep all of this in its own migration module. Then create another migrate function, performing the version dispatch:
+
+  pub fn migrate_0_1_0(deps: DepsMut) -> StdResult<Response> {
     const COUNTER: Item<u64> = Item::new("counter");
     const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
     const OWNER: Item<Addr> = Item::new("owner");
-      // assigning the COUNTER, MINIMAL_DONATION, and OWNER to the new state which will be used to load the data from the old state
-    let counter = COUNTER.load(deps.storage)?; 
-    // load counter old state
+    let counter = COUNTER.load(deps.storage)?;
     let minimal_donation = MINIMAL_DONATION.load(deps.storage)?;
-    // loading the minimal_donation from the old state
     let owner = OWNER.load(deps.storage)?;
-    // loading the owner from the old state
     STATE.save(
-        deps.storage, // saving the data to the new state
-        &State { // using the State struct to save the data to the new state
+        deps.storage,
+        &State {
             counter,
             minimal_donation,
             owner,
         },
     )?;
-    // saving the data to the new state
-
     Ok(Response::new())
-}// migrate contract state
+} // migrate contract state to new version, migrate to 0.1.0
+      
 // similar to instantiation, but we are loading the data from the old state and saving it to the new state
 
 // query is a read operation

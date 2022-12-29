@@ -21,6 +21,7 @@ cosmwasm-schema = "1.1.9"
 cosmwasm-std = "1.0.0" #cosmwasm standard library
 cw-multi-test = { version = "0.16.2", optional = true } # cosmwasm testing library, optional because we dont want to build this dependency for normal builds
 cw-storage-plus = "1.0.1" #cosmwasm storage library (access to contract state)
+cw2 = "1.0.1"
 schemars = "0.8.11"
 serde = "1.0.0" #serialization library
 thiserror = "1.0.38"

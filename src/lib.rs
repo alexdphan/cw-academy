@@ -75,7 +75,7 @@ pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> Result<Response, ContractError> {
     contract::migrate(deps)
 } // entry point migrate function for contract.rs, if the feature library is not enabled
 // returns a StdResult<Response> type, which is an alias for Result<Response, StdError>

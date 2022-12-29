@@ -167,6 +167,7 @@ dependencies = [
  "counting-contract 0.1.0",
  "cw-multi-test",
  "cw-storage-plus",
+ "cw2",
  "schemars",
  "serde",
  "thiserror",
