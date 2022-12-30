@@ -6,26 +6,44 @@
 use cosmwasm_std::{Addr, Coin, DepsMut, MessageInfo, Response, StdResult};
 use cw2::{get_contract_version, set_contract_version};
 use cw_storage_plus::Item;
+use serde::{Serialize, Deserialize};
 
 use crate::error::ContractError;
-use crate::state::{State, STATE};
+use crate::msg::Parent;
+use crate::state::{State, STATE, PARENT_DONATION, ParentDonation};
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION"); 
 // notice the use of env! macro, which allows us to access environment variables at compile time, the use of const is important here to prevent mutable access (changes)
 
-pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donation: Coin) -> StdResult<Response> {
+pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donation: Coin, parent: Option<Parent>) -> StdResult<Response> {
   set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
   STATE.save(deps.storage, &State {
     counter,
     minimal_donation,
     owner: info.sender,
-        },
+    donating_parent: parent.as_ref().map(|p| p.donating_period), 
+        }, // added donating_parent field which is a countdown till the donation period ends
+        // if parent is Some, we map it to the donating_period field, if not, we map it to None (coming from Option<Parent>)
     )?;
+
+    // if Some
+    if let Some(parent) = parent {
+        PARENT_DONATION.save(deps.storage, 
+          &ParentDonation {
+            address: deps.api.addr_validate(&parent.addr)?,
+            donating_parent_period: parent.donating_period,
+            part: parent.part,
+        })?;
+    } // if parent is Some, we save it to the storage using the PARENT_DONATION key and the referred ParentDonation struct
+    // we validate the address using the addr_validate function from the api module, which returns a StdResult<Addr> type, then we also save the donating_parent_ period and part fields from the Parent struct
+
     Ok(Response::new())
 }
-// initialize contract state
+// instantiate contract, set contract version, save state
+
+
 
 pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
     let contract_version = get_contract_version(deps.storage)?;
@@ -39,7 +57,8 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
  let resp = match contract_version.version.as_str() {
         "0.1.0" => migrate_0_1_0(deps.branch()).map_err(ContractError::from)?,
         // branch function we call on deps, utility that allows having another copy of a mutable state in a single contract, like a clone() function
-        "0.2.0" => return Ok(Response::default()), // no migration needed since we are already at 0.2.0
+        "0.2.0" => migrate_0_2_0(deps.branch()).map_err(ContractError::from)?,
+        CONTRACT_VERSION => return Ok(Response::default()),
         version => {
             return Err(ContractError::InvalidContractVersion {
                 version: version.into(),
@@ -70,12 +89,50 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
             counter,
             minimal_donation,
             owner,
+            donating_parent: None,
         },
     )?;
     Ok(Response::new())
 } // migrate contract state to new version, migrate to 0.1.0
       
 // similar to instantiation, but we are loading the data from the old state and saving it to the new state
+
+pub fn migrate_0_2_0(deps: DepsMut) -> StdResult<Response> {
+    #[derive(Serialize, Deserialize)]
+    struct OldState {
+        counter: u64,
+        minimal_donation: Coin,
+        owner: Addr,
+    }
+
+const OLD_STATE: Item<OldState> = Item::new("state");
+// assigns the Item struct to the constant OLD_STATE, which is a state accessor from src/state.rs
+
+ let OldState {
+        counter,
+        minimal_donation,
+        owner,
+    } = OLD_STATE.load(deps.storage)?;
+    // let is used instead of const because it is used to bind a value to a variable, and we are binding the value of the load function to the variables
+    // whereas const is used to bind a value to a constant, and we are binding the value of the Item struct to the constant
+    // assigns OldState to the variables and sets them to the values of the load function, which uses deps.storage as an argument
+    // we use OldState to load the old state from the storage, then we save it to the new state
+    // we have to use the same names as the fields in the State struct, so we can use the shorthand syntax, which is the same as writing: 
+    // counter: counter, minimal_donation: minimal_donation, owner: owner
+STATE.save(
+        deps.storage,
+        &State {
+            counter,
+            minimal_donation,
+            owner,
+            donating_parent: None,
+        },
+    )?;
+    // saving the old state to the new state by using the save function from STATE, which is a state accessor from src/state.rs 
+    // takes deps.storage as an argument from the migrate function (DepsMut, and the new State struct, which is a struct from src/state.rs
+
+    Ok(Response::new())
+} // migrate contract state to new version, migrate to 0.2.0
 
 // query is a read operation
 pub mod query {

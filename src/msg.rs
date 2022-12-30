@@ -2,19 +2,28 @@
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Coin;
+use cosmwasm_std::{Coin, Decimal};
 // QueryResponses is a type that represents a list of query responses
 use cosmwasm_schema::QueryResponses; 
 
-// When the contract is queried, it should be able to create a variety of queries. To do so, we typically create query messages as enum types, where every single variant is a separate query the contract understands.
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)] // Removed Eq as it is not needed
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
+pub struct Parent {
+  pub addr: String, 
+  pub donating_period: u64,
+  pub part: Decimal,
+}
+
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 // #[serde(rename_all = "snake_case")]
-#[cw_serde] // using this instead of the above
+#[cw_serde] 
 pub struct InstantiateMsg { // struct to hold the data for the contract initialization (from state.rs)
     #[serde(default)]
     pub counter: u64,
-    pub minimal_donation: Coin 
-}
+    pub minimal_donation: Coin ,
+    pub parent: Option<Parent>,
+} // added parent field which is an Option type, meaning it can be None or Some
+// and it is a Parent struct, which is a struct that holds the address of the parent, the donating period and the part of the donation that the parent will receive
 
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 // #[serde(rename_all = "snake_case")]
@@ -60,3 +69,7 @@ pub struct ValueResp {
 // we define an enum with a single variant per execution message we want to handle. 
 // #[serde(default)] is a macro that allows us to set a default value for a field in a struct or enum variant.
 // The serde crate is a library that provides a way to serialize and deserialize Rust data structures in a variety of formats, such as JSON, YAML, and XML.
+// When the contract is queried, it should be able to create a variety of queries. To do so, we typically create query messages as enum types, where every single variant is a separate query the contract understands.
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)] // Removed Eq as it is not needed
+// #[serde(rename_all = "snake_case")]
+ // #[cw_serde] using this instead of the above, generates all the boilerplate code for us instead of having to write #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)] for every struct

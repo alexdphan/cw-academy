@@ -1,6 +1,6 @@
 [package]
 name = "counting-contract"
-version = "0.2.0" # updates to 0.2.0 when we change the contract
+version = "0.3.0" # update to 0.3.0 when we copy the contract and create a new version
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
