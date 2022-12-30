@@ -32,7 +32,7 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    contract::instantiate(deps, info, msg.counter, msg.minimal_donation)
+    contract::instantiate(deps, info, msg.counter, msg.minimal_donation, msg.parent)
     // calls the instantiate function for contract.rs, if the feature library is not enabled
 } // entry point instantiate function for contract.rs, if the feature library is not enabled
 // saves the state and owner to the blockchain, response is empty, but it is a success
@@ -49,7 +49,7 @@ pub fn execute(
 
  match msg {
 
-        Donate {} => exec::donate(deps, info).map_err(ContractError::Std),
+        Donate {} => exec::donate(deps, env, info).map_err(ContractError::Std),
 
         Reset { counter } => exec::reset(deps, info, counter),
 

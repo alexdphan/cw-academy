@@ -8,7 +8,7 @@ use cosmwasm_std::{Addr, Coin, Empty, StdResult};
 use cw_multi_test::{App, ContractWrapper, Executor};
 
 use crate::error::ContractError;
-use crate::msg::{ExecMsg, InstantiateMsg, QueryMsg, ValueResp};
+use crate::msg::{ExecMsg, InstantiateMsg, Parent, QueryMsg, ValueResp};
 use crate::{execute, instantiate, migrate, query};
 
 pub struct CountingContract(Addr);
@@ -41,18 +41,24 @@ pub fn store_code(app: &mut App) -> u64 {
    admin: impl Into<Option<&'a Addr>>, // passing a reference to an address, so we can pass a reference, passed an additional lifetime parameter 'a
     counter: impl Into<Option<u64>>, 
     minimal_donation: Coin,
+    parent: impl Into<Option<Parent>>,
+ // passing a reference to an address, so we can pass a reference
+    // impl is a trait, Into is a trait that converts a value into another type
+    // for example, we can pass a string, and convert it into an address
   ) -> StdResult<Self> {
     let admin = admin.into();
        // assigning the admin value to admin. into() is a method that converts the value into the usually inferred input type
     let counter = counter.into().unwrap_or_default();
     // unwrap_or_default: if counter is not provided, use default value (can be provided from #[serde(default)]
-
-      app.instantiate_contract(
+    let parent = parent.into();
+    // assigning the parent value to parent. into() is a method that converts the value into the usually inferred input type, hence the impl in the instantiate function
+  app.instantiate_contract(
             code_id,
             sender.clone(),
             &InstantiateMsg {
                 counter,
                 minimal_donation,
+                parent,
             },
             &[],
             label,

@@ -9,10 +9,10 @@ use cosmwasm_schema::QueryResponses;
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[cw_serde]
 pub struct Parent {
-  pub addr: String, 
-  pub donating_period: u64,
-  pub part: Decimal,
-}
+    pub addr: String,
+    pub donating_period: u64,
+    pub part: Decimal,
+}// added parent struct (inlcluded in InstantiateMsg, which is an Option type, meaning it can be None or Some)
 
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 // #[serde(rename_all = "snake_case")]
@@ -20,10 +20,11 @@ pub struct Parent {
 pub struct InstantiateMsg { // struct to hold the data for the contract initialization (from state.rs)
     #[serde(default)]
     pub counter: u64,
-    pub minimal_donation: Coin ,
+    pub minimal_donation: Coin,
     pub parent: Option<Parent>,
-} // added parent field which is an Option type, meaning it can be None or Some
+}// added parent field which is an Option type, meaning it can be None or Some
 // and it is a Parent struct, which is a struct that holds the address of the parent, the donating period and the part of the donation that the parent will receive
+// added embedded struct Parent to the InstantiateMsg struct in order to keep ingo about forwarding (donations) to the parent contract. If this is None, then the contract will not forward any donations to the parent contract.
 
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 // #[serde(rename_all = "snake_case")]

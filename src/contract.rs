@@ -93,7 +93,7 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
         },
     )?;
     Ok(Response::new())
-} // migrate contract state to new version, migrate to 0.1.0
+} // migrate from 0.1.0 to 0.2.0
       
 // similar to instantiation, but we are loading the data from the old state and saving it to the new state
 
@@ -119,7 +119,6 @@ const OLD_STATE: Item<OldState> = Item::new("state");
     // we use OldState to load the old state from the storage, then we save it to the new state
     // we have to use the same names as the fields in the State struct, so we can use the shorthand syntax, which is the same as writing: 
     // counter: counter, minimal_donation: minimal_donation, owner: owner
-    // 
 STATE.save(
         deps.storage,
         &State {
@@ -133,7 +132,7 @@ STATE.save(
     // takes deps.storage as an argument from the migrate function (DepsMut, and the new State struct, which is a struct from src/state.rs
 
     Ok(Response::new())
-} // migrate contract state to new version, migrate to 0.2.0
+} // migrate from 0.2.0 to 0.3.0
 
 // query is a read operation
 pub mod query {
@@ -155,35 +154,95 @@ pub mod query {
 
   // execute is a write operation
   pub mod exec {
-    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
+    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg, to_binary};
 
     use crate::error::ContractError;
-    use crate::state::STATE;
+    use crate::msg::ExecMsg;
+    use crate::state::{STATE, PARENT_DONATION};
 
-     pub fn donate(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
-        // don't always want to update counter, delayed updating the counter, make it mutable
+     pub fn donate(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
+      // we use DepsMut to access contract/bc storage, and we use it to write to the storage
+      // we use Env to access the blockchain context, and we use it to get the current block height
+      // we use MessageInfo to access the message sender, and we use it to get the sender's address
+
       let mut state = STATE.load(deps.storage)?;
+      let mut resp = Response::new();
+      // setting the state to the value of the load function, which takes deps.storage as an argument
+      // setting the response to a new Response struct, which is a struct from cosmwasm_std that is used to build a response
 
-        // |coin| is a closure, a function that can be passed as an argument to another function
+      // |coin| is a closure, a function that can be passed as an argument to another function
       if state.minimal_donation.amount.is_zero() || info.funds.iter().any(|coin| {
         coin.denom == state.minimal_donation.denom && coin.amount >= state.minimal_donation.amount
       }) {
         state.counter += 1;
-        STATE.save(deps.storage, &state)?;
-      }
-      // function checks whether the amount field of the MINIMAL_DONATION struct is zero, or if there is a coin in the funds field of the MessageInfo struct with a denom matching the denom field of the MINIMAL_DONATION struct and an amount greater than or equal to the amount field of the MINIMAL_DONATION struct. 
-      // If either of these conditions is true, the counter variable is incremented by 1 and the updated value is saved back to the contract's storage using the save method on the COUNTER constant.
+      // if the minimal donation amount is zero, or if the funds in the message info are greater than or equal to the minimal donation amount, then we increment the counter by 1
 
-          let resp = Response::new()
-            .add_attribute("action", "poke")
-            .add_attribute("sender", info.sender.as_str())
-            .add_attribute("counter", state.counter.to_string());
-          // adding attributes to the wasm event (only default event type that is emitted from every execution)
+        if let Some(parent) = &mut state.donating_parent {
+          *parent -= 1;
+      // if the donating parent is not empty, then we decrement the parent by 1
+
+       if *parent == 0 {
+      let parent_donation = PARENT_DONATION.load(deps.storage)?;
+      *parent = parent_donation.donating_parent_period;
+      // if the parent is equal to 0, then we set the parent to the donating parent period, which is a field in the parent donation struct
+
+      // *parent is a dereference operator that allows you to access the value stored in the memory location pointed to by a reference.
+      // this is different from &parent, which is a reference operator that allows you to access the memory location of a value. 
+      // * is pointed to by a reference, & is a reference to a value.
+        // in this example, we are pointing to parent, which is a reference to a value which is a u64, and we are setting it to the donating parent period, which is a field in the parent donation struct
+
+  let funds: Vec<_> = deps
+    .querier
+    .query_all_balances(env.contract.address)?
+    .into_iter()
+    .map(|mut coin| {
+      coin.amount = coin.amount * parent_donation.part;
+      coin
+    })
+    .collect();
+  // we are setting the funds to a vector of coins, which is a struct from cosmwasm_std that is used to represent a coin
+  // we then use the query_all_balances function from the querier, which is a struct from cosmwasm_std that is used to query the blockchain
+  // we use the contract address from the env struct, which is a struct from cosmwasm_std that is used to access the blockchain context
+  // we then use the into_iter function to iterate over the balances, which is a vector of coins
+  // we then use the map function to map over the balances, which is a vector of coins, we map using a closure, which is a function that can be passed as an argument to another function
+  // we then use the amount field from the coin struct, which is a struct from cosmwasm_std that is used to represent a coin
+  // we then use the part field from the parent donation struct, which is a field in the parent donation struct
+  // we multiply the amount by the part, which is a field in the parent donation struct and we set it to the amount field of the coin struct
+  // we then use the collect function to collect the results of the map function, which is a vector of coins
+
+    let msg = WasmMsg::Execute {
+      contract_addr: parent_donation.address.to_string(),
+      msg: to_binary(&ExecMsg::Donate {})?,
+      funds,
+    }; 
+    // here we just set the message to a WasmMsg::Execute struct, which is a struct from cosmwasm_std that is used to build a wasm message
+    // we set the contract address to the address field from the parent donation struct, which is a field in the parent donation struct
+    // we set the message to the donate message, which is a field in the exec message struct, which is a struct from the crate::msg module, this would be turned into a binary using the to_binary function from cosmwasm_std
+    // we set the funds to the funds vector, which is a vector of coins
+    // the purpose of msg is to send a message to another contract, which is the parent donation address, which is a field in the parent donation struct
+
+    resp = resp
+        .add_message(msg)
+        .add_attribute("donated_to_parent", parent_donation.address.to_string());
+    // we add the message to the response, which is a struct from cosmwasm_std that is used to build a response
+    // we also add an attribute to the response, which is a struct from cosmwasm_std that is used to build a response
+      // the purpose of the attribute is to add a key-value pair to the response, which is a struct from cosmwasm_std that is used to build a response
+      // the key is donated_to_parent, and the value is the address field from the parent donation struct, which is a field in the parent donation struct
+    // finally, we convert the response to string and return it, assigning it to the response variable
+  }      
+}
+
+      STATE.save(deps.storage, &state)?;
+      // we save the state to the storage, which is a field in the deps struct, which is a struct from cosmwasm_std that is used to access the blockchain context
+      }
+
+  resp = resp 
+    .add_attribute("action", "donate")
+    .add_attribute("sender", info.sender.to_string())
+    .add_attribute("counter", state.counter.to_string());
+    // adding attributes to the wasm event (only default event type that is emitted from every execution)
       Ok(resp)
       } 
-    // similar to instantiate, but update/incrementing the counter
-    // this function, poke, there is a storage and info (sender) being passed as an argument to the save method of the COUNTER object.
-    // returns a result of type StdResult<Response>
 
         pub fn reset(deps: DepsMut, info: MessageInfo, counter: u64) -> Result<Response, ContractError> {
          let mut state = STATE.load(deps.storage)?;

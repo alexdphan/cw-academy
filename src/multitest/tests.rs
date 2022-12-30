@@ -1,8 +1,8 @@
-use cosmwasm_std::{coin, coins, Addr};
+use cosmwasm_std::{coin, coins, Addr, Decimal};
 use cw_multi_test::App;
 
 use crate::error::ContractError;
-use crate::msg::ValueResp;
+use crate::msg::{ValueResp, Parent};
 use crate::state::{State, STATE};
 
 use super::contract::CountingContract;
@@ -26,6 +26,7 @@ fn query_value() {
         None,
         10,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -49,6 +50,7 @@ fn donate() {
         None,
         0,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -79,6 +81,7 @@ fn donate_with_funds() {
         None,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -106,6 +109,7 @@ fn expecting_no_funds() {
         None,
         None,
         coin(0, ATOM),
+        None
     )
     .unwrap();
 
@@ -130,6 +134,7 @@ fn reset() {
         None,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -160,6 +165,7 @@ fn withdraw() {
         None,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -202,6 +208,7 @@ fn withdraw_to() {
         None,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -241,6 +248,7 @@ fn unauthorized_withdraw() {
         None,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -269,6 +277,7 @@ fn unauthorized_withdraw_to() {
         None,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -299,6 +308,7 @@ fn unauthorized_reset() {
         None,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
 
@@ -366,6 +376,7 @@ fn migration() {
             counter: 1,
             minimal_donation: coin(10, ATOM),
             owner,
+            donating_parent: None,
         }
     );
     // assert that the state of the new contract is correct
@@ -400,6 +411,7 @@ fn migration_same_version() {
         &admin,
         None,
         coin(10, ATOM),
+        None
     )
     .unwrap();
     // instantiate contract
@@ -424,7 +436,78 @@ fn migration_same_version() {
             counter: 1,
             minimal_donation: coin(10, ATOM),
             owner,
+            donating_parent: None,
         }
     ); // assert that the state of the contract is correct, the state should be 1, the minimal donation should be 10 atom, and the owner should be owner
 }
 // test to ensure that the old contract can be migrated to the new one
+
+#[test]
+fn donating_parent() {
+    let owner = Addr::unchecked("owner");
+    let sender = Addr::unchecked("sender");
+
+    let mut app = App::new(|router, _api, storage| {
+        router 
+            .bank
+            .init_balance(storage, &sender, coins(20, "atom"))
+            .unwrap();
+    });
+
+    let code_id = CountingContract::store_code(&mut app);
+
+   let parent_contract = CountingContract::instantiate(
+        &mut app,
+        code_id,
+        &owner,
+        "Parent contract",
+        None,
+        None,
+        coin(0, ATOM),
+        None,
+    )
+    .unwrap();
+
+    let contract = CountingContract::instantiate(
+        &mut app,
+        code_id,
+        &owner,
+        "Counting contract",
+        None,
+        None,
+        coin(10, ATOM),
+      Parent {
+            addr: parent_contract.addr().to_string(),
+            donating_period: 2,
+            part: Decimal::percent(10),
+        },
+    )
+    .unwrap();
+
+    contract
+        .donate(&mut app, &sender, &coins(10, ATOM))
+        .unwrap();
+    contract
+        .donate(&mut app, &sender, &coins(10, ATOM))
+        .unwrap();
+    // donate 10 atom to contract (CountingContract) twice
+
+    let resp = parent_contract.query_value(&app).unwrap();
+    assert_eq!(resp, ValueResp { value: 1 });
+
+    let resp = contract.query_value(&app).unwrap();
+    assert_eq!(resp, ValueResp { value: 2 });
+
+    assert_eq!(app.wrap().query_all_balances(owner).unwrap(), vec![]);
+    assert_eq!(app.wrap().query_all_balances(sender).unwrap(), vec![]);
+    assert_eq!(
+        app.wrap().query_all_balances(contract.addr()).unwrap(),
+        coins(18, ATOM)
+    );
+    assert_eq!(
+        app.wrap()
+            .query_all_balances(parent_contract.addr())
+            .unwrap(),
+        coins(2, ATOM)
+    );
+}
