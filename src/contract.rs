@@ -119,6 +119,7 @@ const OLD_STATE: Item<OldState> = Item::new("state");
     // we use OldState to load the old state from the storage, then we save it to the new state
     // we have to use the same names as the fields in the State struct, so we can use the shorthand syntax, which is the same as writing: 
     // counter: counter, minimal_donation: minimal_donation, owner: owner
+    // 
 STATE.save(
         deps.storage,
         &State {
