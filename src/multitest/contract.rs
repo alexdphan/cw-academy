@@ -4,11 +4,11 @@
 // The proxy contract is deployed to the blockchain and can be interacted with by users. 
 // More info in additional notes at the end of the file
 
-use cosmwasm_std::{Addr, Coin, Empty, StdResult};
+use cosmwasm_std::{Addr, Coin, StdResult};
 use cw_multi_test::{App, ContractWrapper, Executor};
 
 use crate::error::ContractError;
-use crate::msg::{ExecMsg, InstantiateMsg, Parent, QueryMsg, ValueResp};
+use crate::msg::{ExecMsg, InstantiateMsg, MigrateMsg, Parent, QueryMsg, ValueResp};
 use crate::{execute, instantiate, migrate, query};
 
 pub struct CountingContract(Addr);
@@ -72,8 +72,11 @@ pub fn store_code(app: &mut App) -> u64 {
   // .map_err(|err| err.downcast().unwrap()) convert the error type to the one we want, in this case, we want to convert the error type and return the error exactly as it is
 
     #[track_caller]
-    pub fn migrate(app: &mut App, contract: Addr, code_id: u64, sender: &Addr) -> StdResult<Self> {
-        app.migrate_contract(sender.clone(), contract.clone(), &Empty {}, code_id)
+    pub fn migrate(app: &mut App, contract: Addr, code_id: u64, sender: &Addr, parent: impl Into<Option<Parent>>) -> StdResult<Self> {
+
+        let parent = parent.into();
+        
+        app.migrate_contract(sender.clone(), contract.clone(), &MigrateMsg { parent }, code_id)
             .map_err(|err| err.downcast().unwrap()) // convert the error type and return the error exactly as it is
             .map(|_| Self(contract)) // map the result to a new instance of the contract
     }

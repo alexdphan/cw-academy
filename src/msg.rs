@@ -64,6 +64,12 @@ pub struct ValueResp {
     pub value: u64,
 }
 
+#[cw_serde]
+pub struct MigrateMsg {
+    pub parent: Option<Parent>,
+}
+// added parent field which is an Option type, meaning it can be None or Some
+// this message is used to migrate the contract to a new version
 
 // --------- ADDITIONAL NOTES ------------ // 
 // Msg is a type that represents a list of execution messages

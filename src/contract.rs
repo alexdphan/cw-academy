@@ -45,7 +45,7 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, counter: u64, minimal_donat
 
 
 
-pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
+pub fn migrate(mut deps: DepsMut, parent: Option<Parent>) -> Result<Response, ContractError> {
     let contract_version = get_contract_version(deps.storage)?;
 
     if contract_version.contract != CONTRACT_NAME {
@@ -55,9 +55,9 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
     }
 
  let resp = match contract_version.version.as_str() {
-        "0.1.0" => migrate_0_1_0(deps.branch()).map_err(ContractError::from)?,
+        "0.1.0" => migrate_0_1_0(deps.branch(), parent).map_err(ContractError::from)?,
         // branch function we call on deps, utility that allows having another copy of a mutable state in a single contract, like a clone() function
-        "0.2.0" => migrate_0_2_0(deps.branch()).map_err(ContractError::from)?,
+        "0.2.0" => migrate_0_2_0(deps.branch(), parent).map_err(ContractError::from)?,
         CONTRACT_VERSION => return Ok(Response::default()),
         version => {
             return Err(ContractError::InvalidContractVersion {
@@ -76,7 +76,7 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
   } // migrate contract state to a different version (0.1.0 or 0.2.0)
   // It would also be a great idea to keep all of this in its own migration module. Then create another migrate function, performing the version dispatch:
 
-  pub fn migrate_0_1_0(deps: DepsMut) -> StdResult<Response> {
+  pub fn migrate_0_1_0(deps: DepsMut, parent: Option<Parent>) -> StdResult<Response> {
     const COUNTER: Item<u64> = Item::new("counter");
     const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
     const OWNER: Item<Addr> = Item::new("owner");
@@ -89,15 +89,30 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
             counter,
             minimal_donation,
             owner,
-            donating_parent: None,
+            donating_parent: parent.as_ref().map(|p| p.donating_period),
+            // parent has a function as ref, which maps the parent to the donating_period field, if parent is None, it maps it to None
+            // as_ref() is a function that returns an Option<&T> type, which is a reference to the value inside the Option, this comes from the std::option::Option module
         },
     )?;
+
+    if let Some(parent) = parent {
+        PARENT_DONATION.save(
+            deps.storage,
+            &ParentDonation {
+                address: deps.api.addr_validate(&parent.addr)?,
+                donating_parent_period: parent.donating_period,
+                part: parent.part,
+            },
+        )?;
+    }
+    // if parent is Some, we save it to the storage using the PARENT_DONATION key and the referred ParentDonation struct
+    // we save the donating_parent_period and part fields from the Parent struct
     Ok(Response::new())
 } // migrate from 0.1.0 to 0.2.0
       
 // similar to instantiation, but we are loading the data from the old state and saving it to the new state
 
-pub fn migrate_0_2_0(deps: DepsMut) -> StdResult<Response> {
+pub fn migrate_0_2_0(deps: DepsMut, parent: Option<Parent>) -> StdResult<Response> {
     #[derive(Serialize, Deserialize)]
     struct OldState {
         counter: u64,
@@ -125,13 +140,25 @@ STATE.save(
             counter,
             minimal_donation,
             owner,
-            donating_parent: None,
+            donating_parent: parent.as_ref().map(|p| p.donating_period),
         },
     )?;
     // saving the old state to the new state by using the save function from STATE, which is a state accessor from src/state.rs 
     // takes deps.storage as an argument from the migrate function (DepsMut, and the new State struct, which is a struct from src/state.rs
 
+      if let Some(parent) = parent {
+        PARENT_DONATION.save(
+          deps.storage,
+          &ParentDonation {
+            address: deps.api.addr_validate(&parent.addr)?,
+            donating_parent_period: parent.donating_period,
+            part: parent.part,
+          },
+        )?;
+      } // if parent is Some, we save it to the storage using the PARENT_DONATION key and the referred ParentDonation struct
+
     Ok(Response::new())
+    // returns a new Response struct, which is a struct from cosmwasm_std
 } // migrate from 0.2.0 to 0.3.0
 
 // query is a read operation
@@ -356,3 +383,7 @@ pub mod query {
 // Finally, before returning the Response object, we added three attributes to it - action, sender, and counter. 
 // action and sender are pretty much standard, and I encourage you to set it on every single execution your contract perform. 
 // The counter is very specific to the contract.
+
+// A parent contract in a smart contract is a contract that serves as a template or framework for other contracts. It can define certain variables and functions that can be inherited and reused in other contracts, which are known as child contracts. This allows developers to create modular, reusable contracts that can be easily modified and customized for different use cases.
+
+// A parent contract can also define the rules and conditions under which the child contracts are allowed to interact with it, such as by calling its functions or accessing its data. This can help ensure that the child contracts operate in a predictable and secure manner, and that they conform to the requirements and standards set by the parent contract.

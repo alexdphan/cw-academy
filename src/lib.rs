@@ -1,9 +1,7 @@
 #[cfg(not(feature = "library"))] // only compile the entry_point macro if the library feature is not enabled
 use cosmwasm_std::entry_point; // import the entry_point macro from cosmwasm_std
 
-use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
-};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 
 use error::ContractError; 
 // using module file error.rs for ContractError
@@ -75,8 +73,8 @@ pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> Result<Response, ContractError> {
-    contract::migrate(deps)
+pub fn migrate(deps: DepsMut, _env: Env, msg: msg::MigrateMsg) -> Result<Response, ContractError> {
+    contract::migrate(deps, msg.parent)
 } // entry point migrate function for contract.rs, if the feature library is not enabled
 // returns a StdResult<Response> type, which is an alias for Result<Response, StdError>
 // using contract.rs migrate function with deps as parameter
